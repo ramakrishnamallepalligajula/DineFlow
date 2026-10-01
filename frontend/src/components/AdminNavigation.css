@@ -1,0 +1,545 @@
+/* =========================================
+   ADMIN NAVIGATION
+   DINEFLOW RESTAURANT OS
+========================================= */
+
+.admin-navigation {
+  position: fixed;
+
+  top: 0;
+  left: 0;
+
+  width: 250px;
+  height: 100vh;
+
+  background: #ffffff;
+
+  border-right: 1px solid #e7e9ed;
+
+  display: flex;
+  flex-direction: column;
+
+  z-index: 1000;
+
+  box-sizing: border-box;
+}
+
+
+/* =========================================
+   BRAND
+========================================= */
+
+.admin-navigation-brand {
+  height: 82px;
+
+  padding: 0 22px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  border-bottom: 1px solid #f0f1f3;
+
+  cursor: pointer;
+
+  transition: background 0.2s ease;
+}
+
+.admin-navigation-brand:hover {
+  background: #fafafa;
+}
+
+
+.admin-navigation-brand-icon {
+  width: 42px;
+  height: 42px;
+
+  border-radius: 12px;
+
+  background: #fff1e8;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 21px;
+
+  flex-shrink: 0;
+}
+
+
+.admin-navigation-brand-text {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+}
+
+
+.admin-navigation-brand-text h1 {
+  margin: 0;
+
+  font-size: 20px;
+
+  font-weight: 800;
+
+  letter-spacing: -0.5px;
+
+  color: #171717;
+}
+
+
+.admin-navigation-brand-text span {
+  margin-top: 2px;
+
+  font-size: 11px;
+
+  font-weight: 500;
+
+  color: #8a8f98;
+
+  letter-spacing: 0.2px;
+}
+
+
+/* =========================================
+   NAVIGATION CONTENT
+========================================= */
+
+.admin-navigation-content {
+  flex: 1;
+
+  overflow-y: auto;
+
+  padding: 22px 14px;
+}
+
+
+/* =========================================
+   NAVIGATION SECTIONS
+========================================= */
+
+.admin-navigation-section {
+  margin-bottom: 26px;
+}
+
+
+.admin-navigation-section-title {
+  padding: 0 12px;
+
+  margin-bottom: 8px;
+
+  font-size: 10px;
+
+  font-weight: 700;
+
+  color: #a1a5ad;
+
+  letter-spacing: 1px;
+}
+
+
+.admin-navigation-menu {
+  display: flex;
+  flex-direction: column;
+
+  gap: 3px;
+}
+
+
+/* =========================================
+   NAVIGATION ITEM
+========================================= */
+
+.admin-navigation-item {
+  width: 100%;
+
+  min-height: 46px;
+
+  border: none;
+
+  border-radius: 10px;
+
+  background: transparent;
+
+  color: #60656f;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  padding: 0 12px;
+
+  font-family: inherit;
+
+  font-size: 14px;
+
+  font-weight: 600;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+
+.admin-navigation-item:hover {
+  background: #f7f7f8;
+
+  color: #171717;
+}
+
+
+.admin-navigation-item.active {
+  background: #fff1e8;
+
+  color: #f15a24;
+}
+
+
+.admin-navigation-item.active:hover {
+  background: #ffeadb;
+}
+
+
+.admin-navigation-icon {
+  width: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 18px;
+
+  flex-shrink: 0;
+}
+
+
+.admin-navigation-label {
+  flex: 1;
+}
+
+
+/* =========================================
+   BOTTOM AREA
+========================================= */
+
+.admin-navigation-bottom {
+  padding: 14px;
+
+  border-top: 1px solid #f0f1f3;
+
+  background: #ffffff;
+}
+
+
+/* =========================================
+   REFRESH
+========================================= */
+
+.admin-navigation-bottom-item {
+  width: 100%;
+
+  height: 40px;
+
+  border: none;
+
+  background: transparent;
+
+  border-radius: 9px;
+
+  color: #6b7280;
+
+  display: flex;
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 0 12px;
+
+  font-family: inherit;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+
+.admin-navigation-bottom-item:hover {
+  background: #f7f7f8;
+
+  color: #171717;
+}
+
+
+.admin-navigation-bottom-icon {
+  font-size: 18px;
+}
+
+
+/* =========================================
+   USER
+========================================= */
+
+.admin-navigation-user {
+  margin-top: 8px;
+
+  padding: 12px;
+
+  border-radius: 12px;
+
+  background: #f7f8fa;
+
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+}
+
+
+.admin-navigation-user-avatar {
+  width: 34px;
+  height: 34px;
+
+  border-radius: 50%;
+
+  background: #171717;
+
+  color: #ffffff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 13px;
+
+  font-weight: 700;
+
+  flex-shrink: 0;
+}
+
+
+.admin-navigation-user-info {
+  display: flex;
+  flex-direction: column;
+
+  min-width: 0;
+}
+
+
+.admin-navigation-user-info strong {
+  font-size: 12px;
+
+  font-weight: 700;
+
+  color: #202124;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+
+.admin-navigation-user-info span {
+  margin-top: 2px;
+
+  font-size: 10px;
+
+  color: #9297a0;
+}
+
+
+/* =========================================
+   LOGOUT
+========================================= */
+
+.admin-navigation-logout {
+  width: 100%;
+
+  height: 40px;
+
+  margin-top: 8px;
+
+  border: none;
+
+  border-radius: 9px;
+
+  background: transparent;
+
+  color: #737780;
+
+  display: flex;
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 0 12px;
+
+  font-family: inherit;
+
+  font-size: 13px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+
+.admin-navigation-logout:hover {
+  background: #fff1f1;
+
+  color: #dc2626;
+}
+
+
+/* =========================================
+   SCROLLBAR
+========================================= */
+
+.admin-navigation-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.admin-navigation-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-navigation-content::-webkit-scrollbar-thumb {
+  background: #e1e3e7;
+
+  border-radius: 10px;
+}
+
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (max-width: 1000px) {
+
+  .admin-navigation {
+    width: 220px;
+  }
+
+  .admin-navigation-brand {
+    padding: 0 18px;
+  }
+
+  .admin-navigation-item {
+    font-size: 13px;
+  }
+
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 700px) {
+
+  .admin-navigation {
+    position: relative;
+
+    width: 100%;
+
+    height: auto;
+
+    min-height: auto;
+
+    border-right: none;
+
+    border-bottom: 1px solid #e7e9ed;
+  }
+
+
+  .admin-navigation-brand {
+    height: 70px;
+  }
+
+
+  .admin-navigation-content {
+    padding: 12px;
+
+    overflow-x: auto;
+
+    overflow-y: hidden;
+  }
+
+
+  .admin-navigation-section {
+    margin-bottom: 12px;
+  }
+
+
+  .admin-navigation-section-title {
+    display: none;
+  }
+
+
+  .admin-navigation-menu {
+    flex-direction: row;
+
+    gap: 6px;
+  }
+
+
+  .admin-navigation-item {
+    width: auto;
+
+    min-width: max-content;
+
+    padding: 0 14px;
+  }
+
+
+  .admin-navigation-bottom {
+    display: none;
+  }
+
+}
+
+
+/* =========================================
+   SMALL MOBILE
+========================================= */
+
+@media (max-width: 480px) {
+
+  .admin-navigation-brand {
+    padding: 0 14px;
+  }
+
+
+  .admin-navigation-brand-icon {
+    width: 38px;
+    height: 38px;
+
+    font-size: 18px;
+  }
+
+
+  .admin-navigation-brand-text h1 {
+    font-size: 18px;
+  }
+
+
+  .admin-navigation-content {
+    padding: 8px;
+  }
+
+}
