@@ -280,8 +280,8 @@ function FoodManagement() {
       };
 
       const url = editingId
-        ? `http://localhost:3000/api/foods/${editingId}`
-        : "http://localhost:3000/api/foods";
+        ? `${import.meta.env.VITE_API_URL}/api/foods/${editingId}`
+        : `${import.meta.env.VITE_API_URL}/api/foods`;
 
       const method = editingId
         ? "PUT"
@@ -289,7 +289,7 @@ function FoodManagement() {
 
       const response =
   await apiFetch(
-    url.replace("http://localhost:3000", ""),
+    url.replace(import.meta.env.VITE_API_URL, ""),
     {
       method,
 

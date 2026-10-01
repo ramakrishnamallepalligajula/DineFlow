@@ -33,7 +33,7 @@ function OrderStatus() {
         }
 
         const response = await fetch(
-          `http://localhost:3000/api/orders/${localOrder._id}`
+          `${import.meta.env.VITE_API_URL}/api/orders/${localOrder._id}`
         );
 
         const data = await response.json();
