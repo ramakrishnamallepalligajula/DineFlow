@@ -6,8 +6,7 @@ import tableRoutes from "./routes/tableRoutes.js";
 import foodRoutes from "./routes/foodRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 
-//import path from "path";
-//import { fileURLToPath } from "url";
+
 
 import uploadRoutes from "./routes/uploadRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
