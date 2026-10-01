@@ -1,6 +1,7 @@
 import { io } from "socket.io-client";
 
-const URL = `http://${window.location.hostname}:3000`;
+
+const URL = import.meta.env.VITE_API_URL;
 
 // Reuse one socket even when Vite hot-reloads this file
 const socket =
