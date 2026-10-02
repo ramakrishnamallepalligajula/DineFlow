@@ -21,7 +21,7 @@ function Checkout() {
   useEffect(() => {
     const loadTable = async () => {
       try {
-        const API_URL = `http://${window.location.hostname}:3000`;
+        const API_URL = import.meta.env.VITE_API_URL;
 
         const response = await fetch(
           `${API_URL}/api/tables/public/${tableId}`

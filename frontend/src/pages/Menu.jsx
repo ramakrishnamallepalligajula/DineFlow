@@ -6,7 +6,7 @@ import CategoryTabs from "../components/CategoryTabs";
 import Cart from "../components/Cart";
 import { useCart } from "../context/useCart";
 
-const API_URL = `http://${window.location.hostname}:3000`;
+const API_URL = import.meta.env.VITE_API_URL;
 
 function Menu() {
   const [selectedCategory, setSelectedCategory] =
