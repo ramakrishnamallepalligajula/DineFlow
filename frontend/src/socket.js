@@ -4,6 +4,8 @@ import { io } from "socket.io-client";
 const URL = import.meta.env.VITE_API_URL;
 
 // Reuse one socket even when Vite hot-reloads this file
+
+
 const socket =
   globalThis.__appSocket ??
   (globalThis.__appSocket = io(URL, { transports: ["websocket"] }));
