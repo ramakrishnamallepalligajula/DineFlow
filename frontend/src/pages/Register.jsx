@@ -82,7 +82,7 @@ function Register() {
         data.restaurant
       );
 
-      navigate("/admin");
+      navigate("/subscription");
     } catch (error) {
       console.error("Registration failed:", error);
       setError(error.message);

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+
 import "./AdminDashboard.css";
 
 import RevenueChart from "../components/RevenueChart";
@@ -174,23 +175,35 @@ function AdminDashboard() {
           error
         );
 
-        setError(error.message);
+        setError(
+          error.message ||
+            "Something went wrong while loading the dashboard."
+        );
       } finally {
         setLoading(false);
       }
     };
 
     loadDashboard();
-    loadDashboard();
+
+    /* =========================
+       LIVE ORDER REFRESH
+    ========================= */
 
     const handleNewOrder = () => {
       loadDashboard();
     };
 
-    socket.on("new-order", handleNewOrder);
+    socket.on(
+      "new-order",
+      handleNewOrder
+    );
 
     return () => {
-      socket.off("new-order", handleNewOrder);
+      socket.off(
+        "new-order",
+        handleNewOrder
+      );
     };
   }, [revenueDays]);
 
@@ -261,9 +274,7 @@ function AdminDashboard() {
   if (loading) {
     return (
       <div className="admin-dashboard-page">
-
         <div className="dashboard-loading">
-
           <div className="loading-spinner">
             ⟳
           </div>
@@ -275,9 +286,7 @@ function AdminDashboard() {
           <p>
             Preparing your business overview.
           </p>
-
         </div>
-
       </div>
     );
   }
@@ -289,33 +298,29 @@ function AdminDashboard() {
   if (error) {
     return (
       <div className="admin-dashboard-page">
-
         <AdminNavigation />
 
-        <div className="dashboard-error">
+        <main className="admin-dashboard-content">
+          <div className="dashboard-error">
+            <div className="error-icon">
+              !
+            </div>
 
-          <div className="error-icon">
-            !
+            <h2>
+              Unable to load dashboard
+            </h2>
+
+            <p>{error}</p>
+
+            <button
+              onClick={() =>
+                window.location.reload()
+              }
+            >
+              Try Again
+            </button>
           </div>
-
-          <h2>
-            Unable to load dashboard
-          </h2>
-
-          <p>
-            {error}
-          </p>
-
-          <button
-            onClick={() =>
-              window.location.reload()
-            }
-          >
-            Try Again
-          </button>
-
-        </div>
-
+        </main>
       </div>
     );
   }
@@ -331,7 +336,9 @@ function AdminDashboard() {
     todayRevenue = 0,
     totalFoods = 0,
     totalTables = 0,
-  } = dashboard?.stats || dashboard || {};
+  } = dashboard?.stats ||
+  dashboard ||
+  {};
 
   const recentOrders =
     dashboard?.recentOrders || [];
@@ -354,13 +361,12 @@ function AdminDashboard() {
 
   return (
     <div className="admin-dashboard-page">
-
-       <AdminNavigation />
+      <AdminNavigation />
 
       <main className="admin-dashboard-content">
 
         {/* =====================================
-            PAGE HEADER
+            HEADER
         ===================================== */}
 
         <header className="dashboard-header">
@@ -387,14 +393,16 @@ function AdminDashboard() {
 
           <div className="dashboard-header-actions">
 
+            <div className="dashboard-live-status">
+              <span />
+              Live
+            </div>
+
             <button
               className="report-button"
               onClick={downloadSalesReport}
             >
-              <span>
-                ↓
-              </span>
-
+              <span>↓</span>
               Download Report
             </button>
 
@@ -402,163 +410,143 @@ function AdminDashboard() {
 
         </header>
 
-
         {/* =====================================
-            BUSINESS SNAPSHOT
+            KPI CARDS
         ===================================== */}
 
-        <section className="business-section">
+        <section className="dashboard-section">
 
           <div className="section-heading">
 
             <div>
-              <span>
-                TODAY
-              </span>
+              <span>TODAY</span>
 
               <h2>
                 Business snapshot
               </h2>
             </div>
 
-            <div className="live-indicator">
-              <span></span>
-              Live
-            </div>
-
           </div>
 
-
-          <div className="business-grid">
+          <div className="kpi-grid">
 
             {/* REVENUE */}
 
-            <div className="business-card revenue-card">
+            <div className="kpi-card kpi-revenue">
 
-              <div className="business-card-top">
-
-                <div className="business-card-icon revenue-icon">
+              <div className="kpi-top">
+                <div className="kpi-icon">
                   ₹
                 </div>
 
-                <span className="business-card-label">
+                <span>
                   TODAY'S REVENUE
                 </span>
-
               </div>
 
-              <div className="business-card-value">
-                ₹{todayRevenue}
-              </div>
+              <strong>
+                ₹{Number(todayRevenue || 0).toLocaleString("en-IN")}
+              </strong>
 
-              <div className="business-card-footer">
-                <span>
-                  Revenue generated today
-                </span>
-
-                <span className="business-card-arrow">
-                  ↗
-                </span>
-              </div>
+              <small>
+                Revenue generated today
+              </small>
 
             </div>
-
 
             {/* ORDERS */}
 
-            <div className="business-card">
+            <div className="kpi-card">
 
-              <div className="business-card-top">
-
-                <div className="business-card-icon orders-icon">
+              <div className="kpi-top">
+                <div className="kpi-icon">
                   #
                 </div>
 
-                <span className="business-card-label">
+                <span>
                   TODAY'S ORDERS
                 </span>
-
               </div>
 
-              <div className="business-card-value">
+              <strong>
                 {todayOrders}
-              </div>
+              </strong>
 
-              <div className="business-card-footer">
-                <span>
-                  Orders received today
-                </span>
-
-                <span className="business-card-arrow">
-                  ↗
-                </span>
-              </div>
+              <small>
+                Orders received today
+              </small>
 
             </div>
-
 
             {/* ACTIVE */}
 
-            <div className="business-card">
+            <div className="kpi-card">
 
-              <div className="business-card-top">
-
-                <div className="business-card-icon active-icon">
+              <div className="kpi-top">
+                <div className="kpi-icon active">
                   ●
                 </div>
 
-                <span className="business-card-label">
+                <span>
                   ACTIVE ORDERS
                 </span>
-
               </div>
 
-              <div className="business-card-value">
+              <strong>
                 {activeOrders}
-              </div>
+              </strong>
 
-              <div className="business-card-footer">
-                <span>
-                  Currently being processed
-                </span>
-
-                <span className="business-card-arrow">
-                  →
-                </span>
-              </div>
+              <small>
+                Currently being processed
+              </small>
 
             </div>
 
+            {/* TOTAL ORDERS */}
+
+            <div className="kpi-card">
+
+              <div className="kpi-top">
+                <div className="kpi-icon">
+                  ↗
+                </div>
+
+                <span>
+                  TOTAL ORDERS
+                </span>
+              </div>
+
+              <strong>
+                {totalOrders}
+              </strong>
+
+              <small>
+                Orders recorded
+              </small>
+
+            </div>
 
             {/* TABLES */}
 
-            <div className="business-card">
+            <div className="kpi-card">
 
-              <div className="business-card-top">
-
-                <div className="business-card-icon tables-icon">
+              <div className="kpi-top">
+                <div className="kpi-icon">
                   □
                 </div>
 
-                <span className="business-card-label">
+                <span>
                   TABLES
                 </span>
-
               </div>
 
-              <div className="business-card-value">
+              <strong>
                 {totalTables}
-              </div>
+              </strong>
 
-              <div className="business-card-footer">
-                <span>
-                  Total restaurant tables
-                </span>
-
-                <span className="business-card-arrow">
-                  →
-                </span>
-              </div>
+              <small>
+                Restaurant tables
+              </small>
 
             </div>
 
@@ -566,22 +554,20 @@ function AdminDashboard() {
 
         </section>
 
-
         {/* =====================================
-            REVENUE + QUICK INSIGHT
+            REVENUE + ACTIVITY
         ===================================== */}
 
         <section className="dashboard-main-grid">
 
           {/* REVENUE */}
 
-          <div className="revenue-overview-card">
+          <div className="dashboard-card revenue-card">
 
-            <div className="revenue-overview-header">
+            <div className="card-header">
 
               <div>
-
-                <span className="dashboard-eyebrow">
+                <span className="card-eyebrow">
                   BUSINESS PERFORMANCE
                 </span>
 
@@ -593,15 +579,12 @@ function AdminDashboard() {
                   Track your revenue trend
                   across different periods.
                 </p>
-
               </div>
-
 
               <div className="revenue-period-buttons">
 
                 {[7, 30, 90].map(
                   (days) => (
-
                     <button
                       key={days}
                       className={
@@ -619,7 +602,6 @@ function AdminDashboard() {
                         ? "30D"
                         : "3M"}
                     </button>
-
                   )
                 )}
 
@@ -627,25 +609,26 @@ function AdminDashboard() {
 
             </div>
 
+            <div className="revenue-summary">
 
-            <div className="revenue-primary">
+              <div className="revenue-total">
 
-              <span>
-                Revenue
-              </span>
+                <span>
+                  Revenue
+                </span>
 
-              <strong>
-                ₹{revenueSummary.totalRevenue}
-              </strong>
+                <strong>
+                  ₹
+                  {Number(
+                    revenueSummary.totalRevenue || 0
+                  ).toLocaleString("en-IN")}
+                </strong>
 
-              <small>
-                Selected period
-              </small>
+                <small>
+                  Selected period
+                </small>
 
-            </div>
-
-
-            <div className="revenue-summary-grid">
+              </div>
 
               <div>
                 <span>
@@ -673,59 +656,54 @@ function AdminDashboard() {
                 </span>
 
                 <strong>
-                  ₹{revenueSummary.averageOrderValue}
+                  ₹
+                  {Number(
+                    revenueSummary.averageOrderValue || 0
+                  ).toLocaleString("en-IN")}
                 </strong>
               </div>
 
             </div>
 
-
             <div className="revenue-chart-container">
-
               <RevenueChart
                 data={revenueData}
               />
-
             </div>
 
           </div>
 
+          {/* ACTIVITY */}
 
-          {/* QUICK BUSINESS PANEL */}
+          <div className="dashboard-card activity-card">
 
-          <div className="business-insight-card">
-
-            <div className="business-insight-header">
+            <div className="card-header">
 
               <div>
-
-                <span className="dashboard-eyebrow">
+                <span className="card-eyebrow">
                   AT A GLANCE
                 </span>
 
                 <h2>
                   Restaurant activity
                 </h2>
-
               </div>
 
-              <span className="insight-icon">
+              <div className="activity-icon">
                 ✦
-              </span>
+              </div>
 
             </div>
 
+            <div className="activity-list">
 
-            <div className="insight-list">
+              <div className="activity-row">
 
-              <div className="insight-row">
-
-                <div className="insight-row-icon">
+                <div className="activity-icon-box">
                   📦
                 </div>
 
-                <div className="insight-row-info">
-
+                <div>
                   <strong>
                     {totalOrders}
                   </strong>
@@ -733,24 +711,17 @@ function AdminDashboard() {
                   <span>
                     Total orders
                   </span>
-
                 </div>
-
-                <span className="insight-arrow">
-                  →
-                </span>
 
               </div>
 
+              <div className="activity-row">
 
-              <div className="insight-row">
-
-                <div className="insight-row-icon">
+                <div className="activity-icon-box">
                   🍔
                 </div>
 
-                <div className="insight-row-info">
-
+                <div>
                   <strong>
                     {totalFoods}
                   </strong>
@@ -758,24 +729,17 @@ function AdminDashboard() {
                   <span>
                     Menu items
                   </span>
-
                 </div>
-
-                <span className="insight-arrow">
-                  →
-                </span>
 
               </div>
 
+              <div className="activity-row">
 
-              <div className="insight-row">
-
-                <div className="insight-row-icon">
+                <div className="activity-icon-box">
                   🪑
                 </div>
 
-                <div className="insight-row-info">
-
+                <div>
                   <strong>
                     {totalTables}
                   </strong>
@@ -783,24 +747,17 @@ function AdminDashboard() {
                   <span>
                     Restaurant tables
                   </span>
-
                 </div>
-
-                <span className="insight-arrow">
-                  →
-                </span>
 
               </div>
 
+              <div className="activity-row">
 
-              <div className="insight-row">
-
-                <div className="insight-row-icon">
+                <div className="activity-icon-box">
                   🔥
                 </div>
 
-                <div className="insight-row-info">
-
+                <div>
                   <strong>
                     {activeOrders}
                   </strong>
@@ -808,10 +765,9 @@ function AdminDashboard() {
                   <span>
                     Orders in progress
                   </span>
-
                 </div>
 
-                <span className="insight-live">
+                <span className="activity-live">
                   LIVE
                 </span>
 
@@ -819,23 +775,9 @@ function AdminDashboard() {
 
             </div>
 
-
-            <div className="insight-footer">
-
-              <span>
-                Keep an eye on active orders
-              </span>
-
-              <span>
-                →
-              </span>
-
-            </div>
-
           </div>
 
         </section>
-
 
         {/* =====================================
             RECENT ORDERS
@@ -846,15 +788,11 @@ function AdminDashboard() {
           <div className="section-heading">
 
             <div>
-
-              <span>
-                OPERATIONS
-              </span>
+              <span>OPERATIONS</span>
 
               <h2>
                 Recent orders
               </h2>
-
             </div>
 
             <span className="section-meta">
@@ -863,11 +801,9 @@ function AdminDashboard() {
 
           </div>
 
-
           <div className="orders-card">
 
             {recentOrders.length === 0 ? (
-
               <div className="empty-dashboard">
 
                 <div>
@@ -884,11 +820,8 @@ function AdminDashboard() {
                 </p>
 
               </div>
-
             ) : (
-
               <>
-
                 <div className="orders-table-header">
 
                   <span>
@@ -913,7 +846,6 @@ function AdminDashboard() {
 
                 </div>
 
-
                 <div className="recent-orders">
 
                   {visibleOrders.map(
@@ -932,7 +864,6 @@ function AdminDashboard() {
 
                         </div>
 
-
                         <div className="order-table">
 
                           <span className="table-number">
@@ -945,34 +876,35 @@ function AdminDashboard() {
 
                         </div>
 
-
                         <div className="order-items">
 
-                          {order.items.length}
-
-                          {" "}
-
-                          {order.items.length === 1
+                          {order.items?.length || 0}{" "}
+                          {(order.items?.length || 0) === 1
                             ? "item"
                             : "items"}
 
                         </div>
 
-
                         <div className="order-amount">
-                          ₹{order.totalPrice}
-                        </div>
 
+                          ₹
+                          {Number(
+                            order.totalPrice || 0
+                          ).toLocaleString("en-IN")}
+
+                        </div>
 
                         <div>
 
                           <span
-                            className={`status-badge ${order.status
-                              .toLowerCase()
-                              .replaceAll(
-                                " ",
-                                "-"
-                              )}`}
+                            className={`status-badge ${
+                              order.status
+                                ?.toLowerCase()
+                                .replaceAll(
+                                  " ",
+                                  "-"
+                                )
+                            }`}
                           >
                             {order.status}
                           </span>
@@ -986,9 +918,7 @@ function AdminDashboard() {
 
                 </div>
 
-
                 {recentOrders.length > 5 && (
-
                   <div className="orders-footer">
 
                     <button
@@ -1005,130 +935,178 @@ function AdminDashboard() {
                     </button>
 
                   </div>
-
                 )}
 
               </>
-
             )}
 
           </div>
 
         </section>
 
-
         {/* =====================================
-            BEST SELLERS
+            PERFORMANCE GRID
         ===================================== */}
 
-        <section className="dashboard-section">
+        <section className="performance-grid">
 
-          <div className="section-heading">
+          {/* TOP SELLERS */}
 
-            <div>
+          <div className="dashboard-card">
 
-              <span>
-                MENU PERFORMANCE
+            <div className="card-header">
+
+              <div>
+                <span className="card-eyebrow">
+                  MENU PERFORMANCE
+                </span>
+
+                <h2>
+                  Best sellers
+                </h2>
+              </div>
+
+              <span className="card-meta">
+                Top 5 items
               </span>
-
-              <h2>
-                Best sellers
-              </h2>
 
             </div>
 
-            <span className="section-meta">
-              Top 5 items
-            </span>
+            <div className="best-sellers-card">
+
+              {topFoods.length === 0 ? (
+                <div className="empty-dashboard">
+
+                  <div>
+                    🍽️
+                  </div>
+
+                  <h3>
+                    No food sales yet
+                  </h3>
+
+                  <p>
+                    Your best-selling menu
+                    items will appear here.
+                  </p>
+
+                </div>
+              ) : (
+                <div className="best-sellers-list">
+
+                  {topFoods
+                    .slice(0, 5)
+                    .map(
+                      (food, index) => (
+
+                        <div
+                          className="best-seller-row"
+                          key={food._id}
+                        >
+
+                          <div className="food-position">
+                            {String(
+                              index + 1
+                            ).padStart(2, "0")}
+                          </div>
+
+                          <div className="food-placeholder">
+                            🍴
+                          </div>
+
+                          <div className="food-info">
+
+                            <strong>
+                              {food._id}
+                            </strong>
+
+                            <span>
+                              {food.quantity} sold
+                            </span>
+
+                          </div>
+
+                          <div className="food-revenue">
+
+                            <strong>
+                              ₹
+                              {Number(
+                                food.revenue || 0
+                              ).toLocaleString("en-IN")}
+                            </strong>
+
+                            <span>
+                              Revenue
+                            </span>
+
+                          </div>
+
+                        </div>
+
+                      )
+                    )}
+
+                </div>
+              )}
+
+            </div>
 
           </div>
 
+          {/* CATEGORY */}
 
-          <div className="best-sellers-card">
+          <div className="dashboard-card category-card">
 
-            {topFoods.length === 0 ? (
+            <div className="card-header">
 
-              <div className="empty-dashboard">
+              <div>
+                <span className="card-eyebrow">
+                  SALES BREAKDOWN
+                </span>
 
-                <div>
-                  🍽️
+                <h2>
+                  Sales by category
+                </h2>
+              </div>
+
+              <span className="card-meta">
+                {categoryPerformance.length} categories
+              </span>
+
+            </div>
+
+            <div className="category-performance-container">
+
+              {categoryPerformance.length === 0 ? (
+                <div className="empty-dashboard">
+
+                  <div>
+                    🏷️
+                  </div>
+
+                  <h3>
+                    No category data yet
+                  </h3>
+
+                  <p>
+                    Category sales will appear
+                    after customers place orders.
+                  </p>
+
                 </div>
+              ) : (
+                <CategoryPerformance
+                  categories={
+                    categoryPerformance
+                  }
+                />
+              )}
 
-                <h3>
-                  No food sales yet
-                </h3>
-
-                <p>
-                  Your best-selling menu items
-                  will appear here.
-                </p>
-
-              </div>
-
-            ) : (
-
-              <div className="best-sellers-list">
-
-                {topFoods
-                  .slice(0, 5)
-                  .map(
-                    (food, index) => (
-
-                      <div
-                        className="best-seller-row"
-                        key={food._id}
-                      >
-
-                        <div className="food-position">
-                          {String(
-                            index + 1
-                          ).padStart(2, "0")}
-                        </div>
-
-
-                        <div className="food-placeholder">
-                          🍴
-                        </div>
-
-
-                        <div className="food-info">
-
-                          <strong>
-                            {food._id}
-                          </strong>
-
-                          <span>
-                            {food.quantity} sold
-                          </span>
-
-                        </div>
-
-
-                        <div className="food-revenue">
-
-                          <strong>
-                            ₹{food.revenue}
-                          </strong>
-
-                          <span>
-                            Revenue
-                          </span>
-
-                        </div>
-
-                      </div>
-
-                    )
-                  )}
-
-              </div>
-
-            )}
+            </div>
 
           </div>
 
         </section>
-
 
         {/* =====================================
             DETAILED ANALYTICS
@@ -1139,7 +1117,6 @@ function AdminDashboard() {
           <div className="section-heading">
 
             <div>
-
               <span>
                 DEEPER INSIGHTS
               </span>
@@ -1147,7 +1124,6 @@ function AdminDashboard() {
               <h2>
                 Business analytics
               </h2>
-
             </div>
 
             <span className="section-meta">
@@ -1156,9 +1132,7 @@ function AdminDashboard() {
 
           </div>
 
-
           <div className="dashboard-accordion">
-
 
             {/* FOOD PERFORMANCE */}
 
@@ -1201,7 +1175,6 @@ function AdminDashboard() {
 
                 </div>
 
-
                 <div className="accordion-right">
 
                   <span className="accordion-count">
@@ -1219,10 +1192,8 @@ function AdminDashboard() {
 
               </button>
 
-
               {expandedSection ===
                 "foodPerformance" && (
-
                 <div className="accordion-content">
 
                   <FoodPerformance
@@ -1232,11 +1203,9 @@ function AdminDashboard() {
                   />
 
                 </div>
-
               )}
 
             </div>
-
 
             {/* CATEGORY PERFORMANCE */}
 
@@ -1279,7 +1248,6 @@ function AdminDashboard() {
 
                 </div>
 
-
                 <div className="accordion-right">
 
                   <span className="accordion-count">
@@ -1297,10 +1265,8 @@ function AdminDashboard() {
 
               </button>
 
-
               {expandedSection ===
                 "categoryPerformance" && (
-
                 <div className="accordion-content">
 
                   <CategoryPerformance
@@ -1310,11 +1276,9 @@ function AdminDashboard() {
                   />
 
                 </div>
-
               )}
 
             </div>
-
 
             {/* PEAK HOURS */}
 
@@ -1357,7 +1321,6 @@ function AdminDashboard() {
 
                 </div>
 
-
                 <div className="accordion-right">
 
                   <span className="accordion-count">
@@ -1375,10 +1338,8 @@ function AdminDashboard() {
 
               </button>
 
-
               {expandedSection ===
                 "peakHours" && (
-
                 <div className="accordion-content">
 
                   <PeakHours
@@ -1386,7 +1347,6 @@ function AdminDashboard() {
                   />
 
                 </div>
-
               )}
 
             </div>
@@ -1396,7 +1356,6 @@ function AdminDashboard() {
         </section>
 
       </main>
-
     </div>
   );
 }

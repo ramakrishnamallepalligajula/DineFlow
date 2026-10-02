@@ -1,0 +1,167 @@
+.category-performance {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.category-performance-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  padding: 18px 20px;
+
+  border-bottom: 1px solid #eef0f2;
+
+  transition: background-color 0.2s ease;
+}
+
+.category-performance-row:last-child {
+  border-bottom: none;
+}
+
+.category-performance-row:hover {
+  background: #fafafa;
+}
+
+.category-performance-left {
+  min-width: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.category-performance-icon {
+  width: 42px;
+  height: 42px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 12px;
+
+  background: #fff7e8;
+
+  font-size: 19px;
+}
+
+.category-performance-info {
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.category-performance-info strong {
+  font-size: 15px;
+  font-weight: 700;
+
+  color: #171717;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-performance-info span {
+  font-size: 13px;
+  color: #8b929d;
+}
+
+.category-performance-revenue {
+  flex-shrink: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.category-performance-revenue strong {
+  font-size: 16px;
+  font-weight: 750;
+
+  color: #171717;
+}
+
+.category-performance-revenue span {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.category-performance-empty {
+  min-height: 180px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  padding: 30px;
+
+  text-align: center;
+}
+
+.category-performance-empty-icon {
+  width: 52px;
+  height: 52px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 12px;
+
+  border-radius: 14px;
+
+  background: #f6f7f9;
+
+  font-size: 23px;
+}
+
+.category-performance-empty h3 {
+  margin: 0 0 6px;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  color: #171717;
+}
+
+.category-performance-empty p {
+  max-width: 320px;
+
+  margin: 0;
+
+  font-size: 13px;
+  line-height: 1.5;
+
+  color: #8b929d;
+}
+
+@media (max-width: 600px) {
+  .category-performance-row {
+    padding: 15px 14px;
+  }
+
+  .category-performance-icon {
+    width: 38px;
+    height: 38px;
+
+    font-size: 17px;
+  }
+
+  .category-performance-left {
+    gap: 11px;
+  }
+
+  .category-performance-revenue strong {
+    font-size: 15px;
+  }
+}

@@ -14,6 +14,7 @@ import Register from "./pages/Register";
 import RestaurantSettings from "./pages/RestaurantSettings";
 import StaffManagement from "./pages/StaffManagement";
 import Home from "./pages/Home";
+import Subscription from "./pages/Subscription";
 
 function App() {
   return (
@@ -29,6 +30,11 @@ function App() {
         <Route
           path="/login"
           element={<Login />}
+        />
+
+        <Route
+          path="/subscription"
+          element={<Subscription />}
         />
 
         <Route

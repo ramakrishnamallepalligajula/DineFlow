@@ -79,7 +79,10 @@ function Login() {
 
           {/* Logo */}
 
-          <div className="brand">
+          <div className="brand" 
+            onClick={() => navigate("/")}
+            role="button"
+            tabIndex={0}>
             <div className="brand-icon">
               👨‍🍳
             </div>

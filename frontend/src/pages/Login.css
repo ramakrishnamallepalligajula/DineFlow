@@ -664,3 +664,6 @@
     font-size: 11px;
   }
 }
+.brand {
+  cursor: pointer;
+}

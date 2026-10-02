@@ -1,53 +1,64 @@
-function CategoryPerformance({ categories }) {
-  if (categories.length === 0) {
+import "./CategoryPerformance.css";
+
+function CategoryPerformance({
+  categories = [],
+}) {
+  if (!categories.length) {
     return (
-      <div className="empty-dashboard">
-        <span>🍽️</span>
-        <p>No category sales yet.</p>
+      <div className="category-performance-empty">
+        <div className="category-performance-empty-icon">
+          🏷️
+        </div>
+
+        <h3>No category sales yet</h3>
+
+        <p>
+          Category performance will appear here once
+          customers start placing orders.
+        </p>
       </div>
     );
   }
 
-  const maxRevenue = Math.max(
-    ...categories.map((category) => category.revenue)
-  );
-
   return (
     <div className="category-performance">
-      {categories.map((category) => {
-        const percentage =
-          maxRevenue > 0
-            ? (category.revenue / maxRevenue) * 100
-            : 0;
+      {categories.map((category, index) => (
+        <div
+          className="category-performance-row"
+          key={category._id || index}
+        >
+          <div className="category-performance-left">
+            <div className="category-performance-icon">
+              🏷️
+            </div>
 
-        return (
-          <div
-            className="category-performance-item"
-            key={category._id}
-          >
-            <div className="category-performance-header">
-              <strong>{category._id}</strong>
-
+            <div className="category-performance-info">
               <strong>
-                ₹{category.revenue}
+                {category._id || "Uncategorized"}
               </strong>
-            </div>
 
-            <div className="category-progress">
-              <div
-                className="category-progress-bar"
-                style={{
-                  width: `${percentage}%`,
-                }}
-              />
+              <span>
+                {Number(category.quantity) || 0}{" "}
+                {(Number(category.quantity) || 0) === 1
+                  ? "item"
+                  : "items"}{" "}
+                sold
+              </span>
             </div>
-
-            <span>
-              {category.quantitySold} items sold
-            </span>
           </div>
-        );
-      })}
+
+          <div className="category-performance-revenue">
+            <strong>
+              ₹
+              {Number(
+                category.revenue || 0
+              ).toLocaleString("en-IN")}
+            </strong>
+
+            <span>Revenue</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import socket from "../socket";
 
 function OrderStatus() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const navigate = useNavigate();
+
+  // =========================
+  // LOAD ORDER
+  // =========================
 
   useEffect(() => {
     let cancelled = false;
@@ -19,16 +27,22 @@ function OrderStatus() {
             setError("No active order found.");
             setLoading(false);
           }
+
           return;
         }
 
-        const localOrder = JSON.parse(savedOrder);
+        const localOrder =
+          JSON.parse(savedOrder);
 
         if (!localOrder._id) {
           if (!cancelled) {
-            setError("MongoDB order ID is missing.");
+            setError(
+              "MongoDB order ID is missing."
+            );
+
             setLoading(false);
           }
+
           return;
         }
 
@@ -40,7 +54,8 @@ function OrderStatus() {
 
         if (!response.ok) {
           throw new Error(
-            data.message || "Failed to fetch order"
+            data.message ||
+              "Failed to fetch order"
           );
         }
 
@@ -74,7 +89,34 @@ function OrderStatus() {
     };
   }, []);
 
-  // Real-time order status updates
+  // =========================
+  // REDIRECT AFTER SERVED
+  // =========================
+
+  useEffect(() => {
+    if (
+      order?.status === "Served" &&
+      order?.tableId
+    ) {
+      localStorage.removeItem("currentOrder");
+
+      navigate(
+        `/order/${order.tableId}`,
+        {
+          replace: true,
+        }
+      );
+    }
+  }, [
+    order?.status,
+    order?.tableId,
+    navigate,
+  ]);
+
+  // =========================
+  // REAL-TIME STATUS UPDATES
+  // =========================
+
   useEffect(() => {
     if (!order?.restaurantId) {
       return;
@@ -85,7 +127,9 @@ function OrderStatus() {
       order.restaurantId
     );
 
-    const handleStatusUpdate = (updatedOrder) => {
+    const handleStatusUpdate = (
+      updatedOrder
+    ) => {
       console.log(
         "⚡ Order status updated:",
         updatedOrder
@@ -94,7 +138,8 @@ function OrderStatus() {
       setOrder((currentOrder) => {
         if (
           !currentOrder ||
-          currentOrder._id !== updatedOrder._id
+          currentOrder._id !==
+            updatedOrder._id
         ) {
           return currentOrder;
         }
@@ -119,7 +164,11 @@ function OrderStatus() {
         handleStatusUpdate
       );
     };
-  }, [order]);
+  }, [order?.restaurantId]);
+
+  // =========================
+  // LOADING
+  // =========================
 
   if (loading) {
     return (
@@ -130,13 +179,20 @@ function OrderStatus() {
           alignItems: "center",
           justifyContent: "center",
           background: "#fffaf2",
-          fontFamily: "Arial, sans-serif",
+          fontFamily:
+            "Arial, sans-serif",
         }}
       >
-        <h2>Loading order...</h2>
+        <h2>
+          Loading order...
+        </h2>
       </div>
     );
   }
+
+  // =========================
+  // ERROR
+  // =========================
 
   if (error) {
     return (
@@ -148,14 +204,24 @@ function OrderStatus() {
           alignItems: "center",
           justifyContent: "center",
           background: "#fffaf2",
-          fontFamily: "Arial, sans-serif",
+          fontFamily:
+            "Arial, sans-serif",
+          padding: "20px",
+          textAlign: "center",
         }}
       >
-        <h2>Something went wrong</h2>
+        <h2>
+          Something went wrong
+        </h2>
+
         <p>{error}</p>
       </div>
     );
   }
+
+  // =========================
+  // NO ORDER
+  // =========================
 
   if (!order) {
     return (
@@ -166,13 +232,20 @@ function OrderStatus() {
           alignItems: "center",
           justifyContent: "center",
           background: "#fffaf2",
-          fontFamily: "Arial, sans-serif",
+          fontFamily:
+            "Arial, sans-serif",
         }}
       >
-        <h2>No active order</h2>
+        <h2>
+          No active order
+        </h2>
       </div>
     );
   }
+
+  // =========================
+  // ORDER STATUS
+  // =========================
 
   return (
     <div
@@ -188,6 +261,7 @@ function OrderStatus() {
       }}
     >
       {/* HEADER */}
+
       <div
         style={{
           width: "100%",
@@ -231,6 +305,7 @@ function OrderStatus() {
       </div>
 
       {/* ORDER CARD */}
+
       <div
         style={{
           width: "100%",
@@ -245,6 +320,7 @@ function OrderStatus() {
         }}
       >
         {/* STATUS */}
+
         <div
           style={{
             width: "100%",
@@ -263,68 +339,83 @@ function OrderStatus() {
         </div>
 
         {/* ITEMS */}
+
         <div
           style={{
             width: "100%",
           }}
         >
-          {order.items.map((item, index) => (
-            <div
-              key={item.id}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto",
-                alignItems: "center",
-                columnGap: "20px",
-                width: "100%",
-                minHeight: "52px",
-                padding: "14px 0",
-                boxSizing: "border-box",
-                borderBottom:
-                  index === order.items.length - 1
-                    ? "none"
-                    : "1px solid #eadaca",
-              }}
-            >
+          {order.items.map(
+            (item, index) => (
               <div
+                key={
+                  item.id ||
+                  `${item.name}-${index}`
+                }
                 style={{
-                  margin: "0",
-                  padding: "0",
-                  color: "#3d2415",
-                  fontSize: "15px",
-                  lineHeight: "1.5",
-                  fontWeight: "500",
+                  display: "grid",
+                  gridTemplateColumns:
+                    "1fr auto",
+                  alignItems: "center",
+                  columnGap: "20px",
+                  width: "100%",
+                  minHeight: "52px",
+                  padding: "14px 0",
+                  boxSizing: "border-box",
+                  borderBottom:
+                    index ===
+                    order.items.length - 1
+                      ? "none"
+                      : "1px solid #eadaca",
                 }}
               >
-                {item.name} × {item.quantity}
-              </div>
+                <div
+                  style={{
+                    margin: "0",
+                    padding: "0",
+                    color: "#3d2415",
+                    fontSize: "15px",
+                    lineHeight: "1.5",
+                    fontWeight: "500",
+                  }}
+                >
+                  {item.name} ×{" "}
+                  {item.quantity}
+                </div>
 
-              <div
-                style={{
-                  margin: "0",
-                  padding: "0",
-                  color: "#4b2918",
-                  fontSize: "16px",
-                  fontWeight: "700",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                ₹{item.price * item.quantity}
+                <div
+                  style={{
+                    margin: "0",
+                    padding: "0",
+                    color: "#4b2918",
+                    fontSize: "16px",
+                    fontWeight: "700",
+                    whiteSpace:
+                      "nowrap",
+                  }}
+                >
+                  ₹
+                  {item.price *
+                    item.quantity}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
 
         {/* TOTAL */}
+
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent:
+              "space-between",
             width: "100%",
             marginTop: "22px",
             paddingTop: "20px",
-            borderTop: "1px solid #eadaca",
+            borderTop:
+              "1px solid #eadaca",
           }}
         >
           <div

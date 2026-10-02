@@ -153,7 +153,29 @@
   box-shadow:
     0 12px 25px rgba(23, 23, 23, 0.2);
 }
+.home-login-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  white-space: nowrap;
+}
+.home-nav-actions {
+  gap: 4px;
+}
 
+.home-login-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 8px;
+  white-space: nowrap;
+}
+
+.home-nav-cta {
+  padding: 10px 10px;
+  white-space: nowrap;
+}
 
 /* =========================================================
    HERO
