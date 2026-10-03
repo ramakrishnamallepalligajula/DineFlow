@@ -10,6 +10,8 @@ import AdminNavigation from "../components/AdminNavigation";
 
 import { apiFetch } from "../services/api";
 import socket from "../socket";
+import { Armchair, LayoutDashboard } from "lucide-react";
+
 
 function AdminDashboard() {
   const [dashboard, setDashboard] = useState(null);
@@ -535,6 +537,7 @@ function AdminDashboard() {
                   □
                 </div>
 
+                <Armchair size={20} strokeWidth={2} />
                 <span>
                   TABLES
                 </span>
