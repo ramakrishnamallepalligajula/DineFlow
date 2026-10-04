@@ -1,0 +1,13 @@
+import express from "express";
+import authMiddleware from "../middleware/authMiddleware.js";
+import requireRole from "../middleware/roleMiddleware.js";
+import Printer from "../models/Printer.js";
+import PrinterDevice from "../models/PrinterDevice.js";
+import PrintJob from "../models/PrintJob.js";
+const router=express.Router(); router.use(authMiddleware,requireRole("admin","staff"));
+router.post("/",async(req,res)=>{try{const {deviceId,name,role,connection,model}=req.body;const device=await PrinterDevice.findOne({_id:deviceId,restaurantId:req.user.restaurantId,status:{$ne:"DISABLED"}});if(!device)return res.status(404).json({message:"Printer device not found"});const printer=await Printer.create({restaurantId:req.user.restaurantId,deviceId,name,role,connection,model});res.status(201).json({printer});}catch(e){if(e.code===11000)return res.status(409).json({message:"Printer name already exists"});res.status(500).json({message:"Failed to create printer"});}});
+router.get("/",async(req,res)=>res.json({printers:await Printer.find({restaurantId:req.user.restaurantId}).sort({createdAt:-1})}));
+router.patch("/:printerId",async(req,res)=>{const allowed=["name","role","connection","model","enabled"],update={};for(const k of allowed)if(req.body[k]!==undefined)update[k]=req.body[k];const printer=await Printer.findOneAndUpdate({_id:req.params.printerId,restaurantId:req.user.restaurantId},{$set:update},{new:true,runValidators:true});if(!printer)return res.status(404).json({message:"Printer not found"});res.json({printer});});
+router.post("/:printerId/test",async(req,res)=>{const printer=await Printer.findOne({_id:req.params.printerId,restaurantId:req.user.restaurantId,enabled:true});if(!printer)return res.status(404).json({message:"Printer not found"});res.status(202).json({message:"Printer test will be sent when the agent test-print handler is enabled",printerId:printer._id});});
+router.get("/:printerId/jobs",async(req,res)=>{const printer=await Printer.findOne({_id:req.params.printerId,restaurantId:req.user.restaurantId});if(!printer)return res.status(404).json({message:"Printer not found"});res.json({jobs:await PrintJob.find({printerId:printer._id,restaurantId:req.user.restaurantId}).sort({createdAt:-1}).limit(100)});});
+export default router;

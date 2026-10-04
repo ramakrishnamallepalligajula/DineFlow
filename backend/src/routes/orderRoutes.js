@@ -277,6 +277,7 @@ import TableSession from "../models/TableSession.js";
 
 import authMiddleware from "../middleware/authMiddleware.js";
 import requireRole from "../middleware/roleMiddleware.js";
+import { createKitchenPrintJob } from "../services/printJobService.js";
 
 const orderRoutes = (io) => {
   const router = express.Router();
@@ -537,6 +538,22 @@ const orderRoutes = (io) => {
       console.log(
         "✅ new-order event emitted"
       );
+
+      // =====================================================
+      // KITCHEN PRINT JOB
+      // =====================================================
+      // Printing is deliberately decoupled from order creation.
+      // A printer outage must never fail a successful order.
+      try {
+        const printJob = await createKitchenPrintJob({ order, io });
+        if (printJob) {
+          console.log(`🖨️ Kitchen print job: ${printJob._id}`);
+        } else {
+          console.log("ℹ️ No enabled kitchen printer configured");
+        }
+      } catch (printError) {
+        console.error("⚠️ Order saved but print job creation failed:", printError);
+      }
 
       // =====================================================
       // RESPONSE

@@ -1,0 +1,13 @@
+import express from "express";
+import authMiddleware from "../middleware/authMiddleware.js";
+import requireRole from "../middleware/roleMiddleware.js";
+import PrinterDevice from "../models/PrinterDevice.js";
+import Printer from "../models/Printer.js";
+import PrintJob from "../models/PrintJob.js";
+import {createPairingCode} from "../services/printerAuthService.js";
+const router=express.Router(); router.use(authMiddleware,requireRole("admin","staff"));
+router.post("/pairing-code",async(req,res)=>{if(req.user.role!=="admin")return res.status(403).json({message:"Only restaurant admins can pair devices"});try{return res.status(201).json({message:"Printer pairing code created",...(await createPairingCode(req.user.restaurantId))});}catch(e){return res.status(500).json({message:"Failed to create pairing code"});}});
+router.get("/",async(req,res)=>res.json({devices:await PrinterDevice.find({restaurantId:req.user.restaurantId}).sort({createdAt:-1})}));
+router.get("/:deviceId",async(req,res)=>{const device=await PrinterDevice.findOne({_id:req.params.deviceId,restaurantId:req.user.restaurantId});if(!device)return res.status(404).json({message:"Device not found"});const [printers,pendingJobs]=await Promise.all([Printer.find({deviceId:device._id,restaurantId:req.user.restaurantId}),PrintJob.countDocuments({deviceId:device._id,restaurantId:req.user.restaurantId,status:{$in:["PENDING","PROCESSING","FAILED"]}})]);res.json({device,printers,pendingJobs});});
+router.delete("/:deviceId",async(req,res)=>{if(req.user.role!=="admin")return res.status(403).json({message:"Only restaurant admins can disable devices"});const device=await PrinterDevice.findOneAndUpdate({_id:req.params.deviceId,restaurantId:req.user.restaurantId},{$set:{status:"DISABLED",disabledAt:new Date()}},{new:true});if(!device)return res.status(404).json({message:"Device not found"});res.json({message:"Device disabled",device});});
+export default router;

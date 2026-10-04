@@ -14,6 +14,9 @@ import authRoutes from "./routes/authRoutes.js";
 import restaurantRoutes from "./routes/restaurantRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
+import printerDeviceRoutes from "./routes/printerDeviceRoutes.js";
+import printerRoutes from "./routes/printerRoutes.js";
+import printerAgentRoutes from "./routes/printerAgentRoutes.js";
 
 
 const app = express();
@@ -85,6 +88,19 @@ export const setupRoutes = (io) => {
   app.use(
     "/api/payments",
     paymentRoutes
+  );
+
+  app.use(
+    "/api/printer-devices",
+     printerDeviceRoutes
+  );
+  app.use(
+    "/api/printers", 
+    printerRoutes
+  );
+  app.use(
+    "/api/printer-agent", 
+    printerAgentRoutes
   );
 };
 
