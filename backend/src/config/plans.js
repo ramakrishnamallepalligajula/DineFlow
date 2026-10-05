@@ -43,11 +43,11 @@ const plans = {
     name: "DineFlow",
 
     monthly: {
-      amount: 999,
+      amount: 0,
     },
 
     yearly: {
-      amount: 7999,
+      amount: 9999,
     },
   },
 };
