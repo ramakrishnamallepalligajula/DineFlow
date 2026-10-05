@@ -12,6 +12,9 @@ function RestaurantSettings() {
     email: "",
     phone: "",
     address: "",
+    gstEnabled: false,
+    gstRate: 5,
+    gstin: "",
   });
 
   const [loading, setLoading] = useState(true);
@@ -56,6 +59,17 @@ function RestaurantSettings() {
           email: data.restaurant.email || "",
           phone: data.restaurant.phone || "",
           address: data.restaurant.address || "",
+
+          gstEnabled:
+            data.restaurant.taxSettings?.gstEnabled ===
+            true,
+
+          gstRate:
+            data.restaurant.taxSettings?.gstRate ??
+            5,
+
+          gstin:
+            data.restaurant.taxSettings?.gstin || "",
         });
       } catch (error) {
         console.error(
@@ -88,6 +102,17 @@ function RestaurantSettings() {
   };
 
   // ==========================================
+  // HANDLE GST TOGGLE
+  // ==========================================
+
+  const handleGstToggle = () => {
+    setFormData((currentData) => ({
+      ...currentData,
+      gstEnabled: !currentData.gstEnabled,
+    }));
+  };
+
+  // ==========================================
   // SAVE RESTAURANT
   // ==========================================
 
@@ -103,14 +128,22 @@ function RestaurantSettings() {
         `${API_URL}/api/restaurants/me`,
         {
           method: "PUT",
+
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+
           body: JSON.stringify({
             name: formData.name,
             phone: formData.phone,
             address: formData.address,
+
+            taxSettings: {
+              gstEnabled: formData.gstEnabled,
+              gstRate: Number(formData.gstRate),
+              gstin: formData.gstin.trim().toUpperCase(),
+            },
           }),
         }
       );
@@ -119,7 +152,8 @@ function RestaurantSettings() {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to update restaurant"
+          data.message ||
+            "Failed to update restaurant"
         );
       }
 
@@ -130,10 +164,21 @@ function RestaurantSettings() {
         email: data.restaurant.email || "",
         phone: data.restaurant.phone || "",
         address: data.restaurant.address || "",
+
+        gstEnabled:
+          data.restaurant.taxSettings?.gstEnabled ===
+          true,
+
+        gstRate:
+          data.restaurant.taxSettings?.gstRate ??
+          5,
+
+        gstin:
+          data.restaurant.taxSettings?.gstin || "",
       });
 
       setSuccess(
-        "Restaurant details updated successfully."
+        "Restaurant settings updated successfully."
       );
     } catch (error) {
       console.error(
@@ -181,22 +226,22 @@ function RestaurantSettings() {
             </h1>
 
             <p style={styles.subtitle}>
-              Manage your restaurant information
+              Manage your restaurant information,
+              tax and billing settings
             </p>
           </div>
         </div>
 
         <div style={styles.card}>
-
-          {/* =========================
-              RESTAURANT INFORMATION
-          ========================= */}
-
-          <h2 style={styles.sectionTitle}>
-            Restaurant Information
-          </h2>
-
           <form onSubmit={handleSave}>
+
+            {/* =========================
+                RESTAURANT INFORMATION
+            ========================= */}
+
+            <h2 style={styles.sectionTitle}>
+              Restaurant Information
+            </h2>
 
             {/* RESTAURANT NAME */}
 
@@ -273,6 +318,209 @@ function RestaurantSettings() {
               />
             </div>
 
+            {/* =========================
+                GST SETTINGS
+            ========================= */}
+
+            <div style={styles.divider} />
+
+            <h2 style={styles.sectionTitle}>
+              GST & Billing Settings
+            </h2>
+
+            <p style={styles.sectionDescription}>
+              Configure GST details used for customer
+              bills and printed receipts.
+            </p>
+
+            {/* GST ENABLE */}
+
+            <div style={styles.gstToggleBox}>
+              <div>
+                <div style={styles.gstTitle}>
+                  Enable GST
+                </div>
+
+                <div style={styles.gstDescription}>
+                  Include GST in customer bills and
+                  receipts.
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGstToggle}
+                style={{
+                  ...styles.toggle,
+                  ...(formData.gstEnabled
+                    ? styles.toggleOn
+                    : styles.toggleOff),
+                }}
+                aria-label="Toggle GST"
+              >
+                <span
+                  style={{
+                    ...styles.toggleCircle,
+                    ...(formData.gstEnabled
+                      ? styles.toggleCircleOn
+                      : styles.toggleCircleOff),
+                  }}
+                />
+              </button>
+            </div>
+
+            {/* GST RATE */}
+
+            <div style={styles.field}>
+              <label style={styles.label}>
+                GST Rate (%)
+              </label>
+
+              <input
+                type="number"
+                name="gstRate"
+                value={formData.gstRate}
+                onChange={handleChange}
+                min="0"
+                max="100"
+                step="0.01"
+                placeholder="5"
+                style={{
+                  ...styles.input,
+                  ...(formData.gstEnabled
+                    ? {}
+                    : styles.disabledInput),
+                }}
+                disabled={!formData.gstEnabled}
+              />
+
+              <p style={styles.helpText}>
+                Example: 5 for 5% GST.
+              </p>
+            </div>
+
+            {/* GSTIN */}
+
+            <div style={styles.field}>
+              <label style={styles.label}>
+                GSTIN
+              </label>
+
+              <input
+                type="text"
+                name="gstin"
+                value={formData.gstin}
+                onChange={handleChange}
+                placeholder="Enter GSTIN"
+                maxLength="15"
+                style={{
+                  ...styles.input,
+                  textTransform: "uppercase",
+                  ...(formData.gstEnabled
+                    ? {}
+                    : styles.disabledInput),
+                }}
+                disabled={!formData.gstEnabled}
+              />
+
+              <p style={styles.helpText}>
+                Your 15-character GST Identification
+                Number. It will appear on printed bills.
+              </p>
+            </div>
+
+            {/* GST PREVIEW */}
+
+            {formData.gstEnabled && (
+              <div style={styles.gstPreview}>
+                <strong>
+                  Billing Example
+                </strong>
+
+                <p>
+                  If the customer pays ₹220 including{" "}
+                  {formData.gstRate || 0}% GST:
+                </p>
+
+                <div style={styles.previewRow}>
+                  <span>Subtotal</span>
+                  <span>
+                    ₹
+                    {(
+                      220 /
+                      (1 +
+                        Number(formData.gstRate || 0) /
+                          100)
+                    ).toFixed(2)}
+                  </span>
+                </div>
+
+                <div style={styles.previewRow}>
+                  <span>
+                    CGST{" "}
+                    {Number(
+                      formData.gstRate || 0
+                    ) / 2}
+                    %
+                  </span>
+
+                  <span>
+                    ₹
+                    {(
+                      (220 /
+                        (1 +
+                          Number(
+                            formData.gstRate || 0
+                          ) /
+                            100)) *
+                      (Number(
+                        formData.gstRate || 0
+                      ) /
+                        2 /
+                        100)
+                    ).toFixed(2)}
+                  </span>
+                </div>
+
+                <div style={styles.previewRow}>
+                  <span>
+                    SGST{" "}
+                    {Number(
+                      formData.gstRate || 0
+                    ) / 2}
+                    %
+                  </span>
+
+                  <span>
+                    ₹
+                    {(
+                      (220 /
+                        (1 +
+                          Number(
+                            formData.gstRate || 0
+                          ) /
+                            100)) *
+                      (Number(
+                        formData.gstRate || 0
+                      ) /
+                        2 /
+                        100)
+                    ).toFixed(2)}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    ...styles.previewRow,
+                    ...styles.previewTotal,
+                  }}
+                >
+                  <strong>Total</strong>
+                  <strong>₹220.00</strong>
+                </div>
+              </div>
+            )}
+
             {/* ERROR */}
 
             {error && (
@@ -300,7 +548,6 @@ function RestaurantSettings() {
                 ? "Saving..."
                 : "Save Changes"}
             </button>
-
           </form>
         </div>
 
@@ -310,13 +557,11 @@ function RestaurantSettings() {
 
         {restaurant && (
           <div style={styles.card}>
-
             <h2 style={styles.sectionTitle}>
               Subscription
             </h2>
 
             <div style={styles.subscriptionGrid}>
-
               <div style={styles.infoBox}>
                 <span style={styles.infoLabel}>
                   Current Plan
@@ -337,17 +582,14 @@ function RestaurantSettings() {
                     "Active"}
                 </strong>
               </div>
-
             </div>
 
             <p style={styles.subscriptionNote}>
               Subscription management will be available
               here after billing is connected.
             </p>
-
           </div>
         )}
-
       </div>
     </>
   );
@@ -386,8 +628,15 @@ const styles = {
 
   sectionTitle: {
     marginTop: 0,
-    marginBottom: "24px",
+    marginBottom: "12px",
     fontSize: "21px",
+  },
+
+  sectionDescription: {
+    marginTop: 0,
+    marginBottom: "24px",
+    color: "#666",
+    fontSize: "14px",
   },
 
   field: {
@@ -413,6 +662,7 @@ const styles = {
   disabledInput: {
     background: "#f1f3f5",
     color: "#777",
+    cursor: "not-allowed",
   },
 
   textarea: {
@@ -431,6 +681,94 @@ const styles = {
     marginBottom: 0,
     fontSize: "13px",
     color: "#777",
+  },
+
+  divider: {
+    height: "1px",
+    background: "#e5e7eb",
+    margin: "32px 0",
+  },
+
+  gstToggleBox: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "18px",
+    marginBottom: "24px",
+    border: "1px solid #e1e4e8",
+    borderRadius: "10px",
+    background: "#fafafa",
+  },
+
+  gstTitle: {
+    fontSize: "16px",
+    fontWeight: "600",
+    marginBottom: "4px",
+  },
+
+  gstDescription: {
+    fontSize: "13px",
+    color: "#777",
+  },
+
+  toggle: {
+    position: "relative",
+    width: "52px",
+    height: "30px",
+    border: "none",
+    borderRadius: "20px",
+    cursor: "pointer",
+    padding: 0,
+    transition: "background 0.2s ease",
+  },
+
+  toggleOn: {
+    background: "#16a34a",
+  },
+
+  toggleOff: {
+    background: "#cbd5e1",
+  },
+
+  toggleCircle: {
+    position: "absolute",
+    top: "4px",
+    width: "22px",
+    height: "22px",
+    borderRadius: "50%",
+    background: "#ffffff",
+    transition: "left 0.2s ease",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+  },
+
+  toggleCircleOn: {
+    left: "26px",
+  },
+
+  toggleCircleOff: {
+    left: "4px",
+  },
+
+  gstPreview: {
+    marginBottom: "24px",
+    padding: "18px",
+    borderRadius: "10px",
+    background: "#f8fafc",
+    border: "1px solid #e2e8f0",
+  },
+
+  previewRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    padding: "7px 0",
+    fontSize: "14px",
+  },
+
+  previewTotal: {
+    marginTop: "8px",
+    paddingTop: "12px",
+    borderTop: "1px solid #d1d5db",
+    fontSize: "15px",
   },
 
   error: {
