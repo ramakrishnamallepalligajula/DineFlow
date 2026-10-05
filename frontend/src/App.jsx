@@ -15,6 +15,7 @@ import RestaurantSettings from "./pages/RestaurantSettings";
 import StaffManagement from "./pages/StaffManagement";
 import Home from "./pages/Home";
 import Subscription from "./pages/Subscription";
+import PrinterManagement from "./components/PrinterManagement";
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
       <Routes>
 
         {/* PUBLIC */}
+
         <Route
           path="/"
           element={<Home />}
@@ -51,12 +53,18 @@ function App() {
           path="/order-status"
           element={<OrderStatus />}
         />
-        <Route 
-        path="/register" 
-        element={<Register />} 
+
+        <Route
+          path="/register"
+          element={<Register />}
         />
 
-        {/* PROTECTED */}
+
+        {/* =========================
+            PROTECTED
+        ========================= */}
+
+        {/* ADMIN DASHBOARD */}
 
         <Route
           path="/admin"
@@ -67,14 +75,20 @@ function App() {
           }
         />
 
+
+        {/* KITCHEN */}
+
         <Route
           path="/kitchen"
           element={
-            <ProtectedRoute allowedRoles={["admin","staff"]}>
+            <ProtectedRoute allowedRoles={["admin", "staff"]}>
               <KitchenDashboard />
             </ProtectedRoute>
           }
         />
+
+
+        {/* MENU / FOOD MANAGEMENT */}
 
         <Route
           path="/foods"
@@ -85,6 +99,9 @@ function App() {
           }
         />
 
+
+        {/* TABLES */}
+
         <Route
           path="/tables"
           element={
@@ -93,6 +110,10 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+
+        {/* STAFF */}
+
         <Route
           path="/staff"
           element={
@@ -102,6 +123,9 @@ function App() {
           }
         />
 
+
+        {/* SETTINGS */}
+
         <Route
           path="/settings"
           element={
@@ -109,7 +133,21 @@ function App() {
               <RestaurantSettings />
             </ProtectedRoute>
           }
-       />
+        />
+
+
+        {/* =========================
+            PRINTER MANAGEMENT
+        ========================= */}
+
+        <Route
+          path="/printers"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <PrinterManagement />
+            </ProtectedRoute>
+          }
+        />
 
       </Routes>
     </BrowserRouter>

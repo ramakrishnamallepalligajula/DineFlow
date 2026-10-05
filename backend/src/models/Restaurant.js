@@ -39,6 +39,22 @@ const restaurantSchema = new mongoose.Schema(
       default: "free",
     },
 
+    // =========================================
+    // GST / TAX SETTINGS
+    // =========================================
+    taxSettings: {
+      gstEnabled: {
+        type: Boolean,
+        default: false,
+      },
+
+      gstRate: {
+        type: Number,
+        default: 5,
+        min: 0,
+      },
+    },
+
     subscriptionStatus: {
       type: String,
       enum: ["active", "inactive", "expired"],

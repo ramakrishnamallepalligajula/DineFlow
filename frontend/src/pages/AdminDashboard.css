@@ -1301,3 +1301,229 @@
     border-top: 1px solid #f0f1f3 !important;
   }
 }
+/* =========================================
+   ACTIVE DINING SESSIONS
+========================================= */
+
+.active-dining-section {
+  margin-top: 8px;
+}
+
+.active-dining-subtitle {
+  margin: 7px 0 0;
+  color: #728096;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.active-dining-refresh {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #dfe4ea;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #171717;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.active-dining-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.active-dining-card {
+  min-width: 0;
+  padding: 28px;
+  border: 1px solid #e3e7ec;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 5px 18px rgba(20, 20, 20, 0.025);
+}
+
+.active-dining-card.bill-requested {
+  border-color: #e8e2d3;
+}
+
+.active-dining-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.active-dining-label {
+  display: block;
+  margin-bottom: 7px;
+  color: #6f7e95;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+}
+
+.active-dining-card-header h3 {
+  margin: 0;
+  color: #171717;
+  font-size: 50px;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+
+.active-dining-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 13px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .3px;
+  white-space: nowrap;
+}
+
+.active-dining-status.open {
+  background: #eaf8ef;
+  color: #18753c;
+}
+
+.active-dining-status.bill {
+  background: #fff1cc;
+  color: #a36a00;
+}
+
+.active-dining-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0 28px;
+}
+
+.active-dining-metrics > div {
+  min-width: 0;
+  padding: 16px;
+  border-radius: 15px;
+  background: #f2f5f9;
+}
+
+.active-dining-metrics span {
+  display: block;
+  margin-bottom: 7px;
+  color: #73839b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.active-dining-metrics strong {
+  display: block;
+  color: #171717;
+  font-size: 18px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.active-dining-bill-alert {
+  margin-bottom: 16px;
+  padding: 15px 17px;
+  border-radius: 15px;
+  background: #fff3d4;
+  color: #9a6500;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.active-dining-orders-button {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #e0e5eb;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #171717;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.active-dining-orders-button:hover,
+.active-dining-refresh:hover {
+  background: #f8f9fa;
+}
+
+.active-dining-order-list {
+  margin-top: 18px;
+  border-top: 1px solid #edf0f3;
+}
+
+.active-dining-order {
+  padding: 18px 0;
+  border-bottom: 1px solid #edf0f3;
+}
+
+.active-dining-order-top,
+.active-dining-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.active-dining-order-top {
+  margin-bottom: 10px;
+  color: #171717;
+  font-size: 15px;
+}
+
+.active-dining-item {
+  padding: 5px 0;
+  color: #708099;
+  font-size: 13px;
+}
+
+.active-dining-item strong {
+  color: #171717;
+}
+
+.active-dining-empty {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed #dce1e7;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.active-dining-empty strong {
+  color: #30343a;
+  font-size: 15px;
+}
+
+.active-dining-empty span {
+  color: #8a929e;
+  font-size: 13px;
+}
+
+@media (max-width: 1200px) {
+  .active-dining-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .active-dining-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .active-dining-card {
+    padding: 20px;
+  }
+}

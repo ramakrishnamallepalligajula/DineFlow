@@ -16,12 +16,13 @@ function AdminNavigation() {
     user,
     restaurant,
   } = useAuth();
+
   const isStaff = user?.role === "staff";
 
   const currentPath =
     location.pathname;
-  
-    const isAdmin = user?.role === "admin";
+
+  const isAdmin = user?.role === "admin";
 
   const isActive = (path) => {
     return currentPath === path;
@@ -74,37 +75,37 @@ function AdminNavigation() {
         {/* MAIN */}
 
         {isAdmin && (
-  <div className="admin-navigation-section">
+          <div className="admin-navigation-section">
 
-    <div className="admin-navigation-section-title">
-      MAIN
-    </div>
+            <div className="admin-navigation-section-title">
+              MAIN
+            </div>
 
-    <nav className="admin-navigation-menu">
+            <nav className="admin-navigation-menu">
 
-      <button
-        className={`admin-navigation-item ${
-          isActive("/admin")
-            ? "active"
-            : ""
-        }`}
-        onClick={() =>
-          navigate("/admin")
-        }
-      >
-        <span className="admin-navigation-icon">
-          📊
-        </span>
+              <button
+                className={`admin-navigation-item ${
+                  isActive("/admin")
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  navigate("/admin")
+                }
+              >
+                <span className="admin-navigation-icon">
+                  📊
+                </span>
 
-        <span className="admin-navigation-label">
-          Dashboard
-        </span>
-      </button>
+                <span className="admin-navigation-label">
+                  Dashboard
+                </span>
+              </button>
 
-    </nav>
+            </nav>
 
-  </div>
-)}
+          </div>
+        )}
 
         {/* OPERATIONS */}
 
@@ -115,6 +116,8 @@ function AdminNavigation() {
           </div>
 
           <nav className="admin-navigation-menu">
+
+            {/* KITCHEN */}
 
             <button
               className={`admin-navigation-item ${
@@ -134,47 +137,75 @@ function AdminNavigation() {
                 Kitchen
               </span>
             </button>
-          {isAdmin && (
-            <button
-              className={`admin-navigation-item ${
-                isActive("/tables")
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                navigate("/tables")
-              }
-            >
-              <span className="admin-navigation-icon">
-                🪑
-              </span>
 
-              <span className="admin-navigation-label">
-                Tables
-              </span>
-            </button>
-          )}
+            {/* PRINTERS */}
 
-          {isAdmin && (
-            <button
-              className={`admin-navigation-item ${
-                isActive("/foods")
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                navigate("/foods")
-              }
-            >
-              <span className="admin-navigation-icon">
-                🍔
-              </span>
+            {isAdmin && (
+              <button
+                className={`admin-navigation-item ${
+                  isActive("/printers")
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  navigate("/printers")
+                }
+              >
+                <span className="admin-navigation-icon">
+                  🖨️
+                </span>
 
-              <span className="admin-navigation-label">
-                Menu
-              </span>
-            </button>
-          )}
+                <span className="admin-navigation-label">
+                  Printers
+                </span>
+              </button>
+            )}
+
+            {/* TABLES */}
+
+            {isAdmin && (
+              <button
+                className={`admin-navigation-item ${
+                  isActive("/tables")
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  navigate("/tables")
+                }
+              >
+                <span className="admin-navigation-icon">
+                  🪑
+                </span>
+
+                <span className="admin-navigation-label">
+                  Tables
+                </span>
+              </button>
+            )}
+
+            {/* MENU */}
+
+            {isAdmin && (
+              <button
+                className={`admin-navigation-item ${
+                  isActive("/foods")
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  navigate("/foods")
+                }
+              >
+                <span className="admin-navigation-icon">
+                  🍔
+                </span>
+
+                <span className="admin-navigation-label">
+                  Menu
+                </span>
+              </button>
+            )}
 
           </nav>
 
@@ -182,74 +213,80 @@ function AdminNavigation() {
 
         {/* BUSINESS */}
 
-      {isAdmin && (
-        <div className="admin-navigation-section">
+        {isAdmin && (
+          <div className="admin-navigation-section">
 
-          <div className="admin-navigation-section-title">
-            BUSINESS
+            <div className="admin-navigation-section-title">
+              BUSINESS
+            </div>
+
+            <nav className="admin-navigation-menu">
+
+              {/* STAFF */}
+
+              <button
+                className={`admin-navigation-item ${
+                  isActive("/staff")
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  navigate("/staff")
+                }
+              >
+                <span className="admin-navigation-icon">
+                  👥
+                </span>
+
+                <span className="admin-navigation-label">
+                  Staff
+                </span>
+              </button>
+
+              {/* REPORTS */}
+
+              {!isStaff && (
+                <button
+                  className="admin-navigation-item"
+                  onClick={() =>
+                    navigate("/admin")
+                  }
+                >
+                  <span className="admin-navigation-icon">
+                    📈
+                  </span>
+
+                  <span className="admin-navigation-label">
+                    Reports
+                  </span>
+                </button>
+              )}
+
+              {/* SETTINGS */}
+
+              <button
+                className={`admin-navigation-item ${
+                  isActive("/settings")
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  navigate("/settings")
+                }
+              >
+                <span className="admin-navigation-icon">
+                  ⚙️
+                </span>
+
+                <span className="admin-navigation-label">
+                  Settings
+                </span>
+              </button>
+
+            </nav>
+
           </div>
-
-          <nav className="admin-navigation-menu">
-            <button
-              className={`admin-navigation-item ${
-              isActive("/staff")
-              ? "active"
-              : ""
-              }`}
-              onClick={() =>
-              navigate("/staff")
-              }>
-              <span className="admin-navigation-icon">
-              👥
-              </span>
-
-              <span className="admin-navigation-label">
-              Staff
-              </span>
-            </button>
-
-          {!isStaff && (
-            <button
-              className="admin-navigation-item"
-              onClick={() =>
-                navigate("/admin")
-              }
-            >
-              <span className="admin-navigation-icon">
-                📈
-              </span>
-
-              <span className="admin-navigation-label">
-                Reports
-              </span>
-            </button>
-
-            )}
-
-            <button
-              className={`admin-navigation-item ${
-                isActive("/settings")
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                navigate("/settings")
-              }
-            >
-              <span className="admin-navigation-icon">
-                ⚙️
-              </span>
-
-              <span className="admin-navigation-label">
-                Settings
-              </span>
-            </button>
-
-          </nav>
-
-        </div>
-
-      )}
+        )}
 
       </div>
 
@@ -317,6 +354,7 @@ function AdminNavigation() {
         </button>
 
       </div>
+
     </aside>
   );
 }

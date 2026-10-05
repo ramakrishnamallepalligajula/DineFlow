@@ -41,6 +41,11 @@ const tableSessionSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    billId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Bill",
+  default: null,
+},
 
     status: {
       type: String,
@@ -63,9 +68,13 @@ tableSessionSchema.index(
   {
     restaurantId: 1,
     tableId: 1,
-    status: 1,
-  }
-);
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: "open",
+  },
+});
 
 const TableSession = mongoose.model(
   "TableSession",

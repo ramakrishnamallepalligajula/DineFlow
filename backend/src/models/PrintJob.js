@@ -13,46 +13,124 @@ const printItemSchema = new mongoose.Schema(
 
 const printPayloadSchema = new mongoose.Schema(
   {
+    // ==============================
+    // COMMON / KITCHEN ORDER FIELDS
+    // ==============================
+
     orderNumber: {
       type: Number,
-      required: true,
+      default: null,
     },
 
     orderSequence: {
       type: Number,
-      required: true,
+      default: null,
       min: 1,
     },
 
     orderType: {
       type: String,
-      enum: ["initial", "additional"],
-      required: true,
+      enum: ["initial", "additional", null],
+      default: null,
     },
 
     tableNumber: {
       type: Number,
-      required: true,
+      default: null,
     },
 
     items: {
       type: [printItemSchema],
-      required: true,
-      validate: {
-        validator: (items) => items.length > 0,
-        message: "Print payload must contain at least one item",
-      },
+      default: [],
     },
 
     totalItems: {
       type: Number,
-      required: true,
-      min: 1,
+      default: 0,
+      min: 0,
     },
 
     totalPrice: {
       type: Number,
-      required: true,
+      default: 0,
+      min: 0,
+    },
+
+    // ==============================
+    // BILLING RECEIPT FIELDS
+    // ==============================
+
+    sessionId: {
+      type: String,
+      default: null,
+    },
+
+    restaurantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Restaurant",
+      default: null,
+    },
+
+    billId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Bill",
+      default: null,
+    },
+
+    billNumber: {
+      type: Number,
+      default: null,
+    },
+
+    orderId: {
+      type: Number,
+      default: null,
+    },
+
+    tableId: {
+      type: String,
+      default: null,
+    },
+
+    orderCount: {
+      type: Number,
+      default: null,
+      min: 1,
+    },
+
+    subtotal: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    taxRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    cgst: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    sgst: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    tax: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    total: {
+      type: Number,
+      default: 0,
       min: 0,
     },
   },
@@ -70,7 +148,6 @@ const printJobSchema = new mongoose.Schema(
 
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Order",
       required: true,
       index: true,
     },
@@ -91,7 +168,7 @@ const printJobSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["KITCHEN_ORDER", "BAR_ORDER", "BILL", "RECEIPT"],
+      enum: ["KITCHEN_ORDER", "BAR_ORDER", "BILL", "RECEIPT", "BILLING_RECEIPT"],
       required: true,
       default: "KITCHEN_ORDER",
     },
