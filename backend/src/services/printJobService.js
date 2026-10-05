@@ -2,14 +2,42 @@ import PrintJob from "../models/PrintJob.js";
 import Printer from "../models/Printer.js";
 
 const emitJob = (printerNamespace, job) => {
+  const roomName = `printer-device:${job.deviceId.toString()}`;
+
+  console.log("========================================");
+  console.log("🖨️ EMITTING PRINT JOB");
+  console.log("========================================");
+  console.log("Job ID:", job._id.toString());
+  console.log("Job Type:", job.type);
+  console.log("Device ID:", job.deviceId.toString());
+  console.log("Room:", roomName);
+  console.log("Status:", job.status);
+  console.log(
+    "Namespace:",
+    printerNamespace.name
+  );
+
+  const socketsInRoom =
+    printerNamespace.adapter.rooms.get(roomName);
+
+  console.log(
+    "Sockets in room:",
+    socketsInRoom
+      ? socketsInRoom.size
+      : 0
+  );
+
   printerNamespace
-    .to(`printer-device:${job.deviceId.toString()}`)
+    .to(roomName)
     .emit("printer:print-job", {
       version: 1,
       type: "PRINT_JOB",
       jobId: job._id.toString(),
       payload: job.payload,
     });
+
+  console.log("✅ PRINT JOB EVENT EMITTED");
+  console.log("========================================");
 };
 
 export async function createKitchenPrintJob({ order, io }) {
@@ -60,6 +88,100 @@ export async function createKitchenPrintJob({ order, io }) {
   }
 
   if (io) emitJob(io.of("/printers"), job);
+  return job;
+}
+
+export async function createBillingPrintJob({ bill, io }) {
+  const printer = await Printer.findOne({
+    restaurantId: bill.restaurantId,
+    role: "BILLING",
+    enabled: true,
+  }).sort({ createdAt: 1 });
+
+
+  console.log("🖨️ BILLING PRINTER LOOKUP:", {
+  restaurantId: String(bill.restaurantId),
+  printerFound: !!printer,
+  printerId: printer?._id?.toString(),
+  deviceId: printer?.deviceId?.toString(),
+  role: printer?.role,
+  enabled: printer?.enabled,
+});
+
+  // No billing printer configured.
+  // Bill remains safely stored in MongoDB.
+  if (!printer) return null;
+
+  const payload = {
+    sessionId: bill.sessionId,
+    restaurantId: bill.restaurantId,
+    billId: bill._id,
+
+    billNumber: bill.billNumber,
+    orderId: bill.orderId,
+
+    tableId: bill.tableId,
+    tableNumber: bill.tableNumber,
+    orderCount: bill.orderCount,
+
+    items: bill.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      category: item.category || "",
+      quantity: item.quantity,
+    })),
+
+    totalItems: bill.totalItems,
+
+    subtotal: bill.subtotal,
+    taxRate: bill.taxRate,
+    cgst: bill.cgst,
+    sgst: bill.sgst,
+    tax: bill.tax,
+    total: bill.total,
+
+    // Keep these populated for compatibility with
+    // the generic print payload structure.
+    totalPrice: bill.total,
+  };
+
+  let job;
+
+  try {
+    job = await PrintJob.create({
+      restaurantId: bill.restaurantId,
+
+      // PrintJob.orderId is now a generic ObjectId.
+      // For a billing job, it points to the Bill document.
+      orderId: bill._id,
+
+      deviceId: printer.deviceId,
+      printerId: printer._id,
+
+      type: "BILLING_RECEIPT",
+
+      payload,
+    });
+  } catch (error) {
+    // Idempotency: don't create duplicate billing jobs
+    // for the same bill + printer.
+    if (error.code === 11000) {
+      return PrintJob.findOne({
+        restaurantId: bill.restaurantId,
+        orderId: bill._id,
+        printerId: printer._id,
+        type: "BILLING_RECEIPT",
+      });
+    }
+
+    throw error;
+  }
+
+  if (io) {
+    emitJob(io.of("/printers"), job);
+  }
+
   return job;
 }
 
