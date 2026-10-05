@@ -84,6 +84,7 @@ function AdminNavigation() {
             <nav className="admin-navigation-menu">
 
               <button
+                data-tour="dashboard"
                 className={`admin-navigation-item ${
                   isActive("/admin")
                     ? "active"
@@ -120,6 +121,7 @@ function AdminNavigation() {
             {/* KITCHEN */}
 
             <button
+              data-tour="kitchen"
               className={`admin-navigation-item ${
                 isActive("/kitchen")
                   ? "active"
@@ -142,6 +144,7 @@ function AdminNavigation() {
 
             {isAdmin && (
               <button
+                data-tour="printers"
                 className={`admin-navigation-item ${
                   isActive("/printers")
                     ? "active"
@@ -165,6 +168,7 @@ function AdminNavigation() {
 
             {isAdmin && (
               <button
+                data-tour="tables"
                 className={`admin-navigation-item ${
                   isActive("/tables")
                     ? "active"
@@ -188,6 +192,7 @@ function AdminNavigation() {
 
             {isAdmin && (
               <button
+                data-tour="menu"
                 className={`admin-navigation-item ${
                   isActive("/foods")
                     ? "active"
@@ -225,6 +230,7 @@ function AdminNavigation() {
               {/* STAFF */}
 
               <button
+                data-tour="staff"
                 className={`admin-navigation-item ${
                   isActive("/staff")
                     ? "active"
@@ -247,6 +253,7 @@ function AdminNavigation() {
 
               {!isStaff && (
                 <button
+                  data-tour="reports"
                   className="admin-navigation-item"
                   onClick={() =>
                     navigate("/admin")
@@ -265,6 +272,7 @@ function AdminNavigation() {
               {/* SETTINGS */}
 
               <button
+                data-tour="settings"
                 className={`admin-navigation-item ${
                   isActive("/settings")
                     ? "active"

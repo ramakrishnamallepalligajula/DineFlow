@@ -1,0 +1,288 @@
+.onboarding-tour {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+}
+
+/* Dark layer */
+
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 20, 0.68);
+  pointer-events: auto;
+}
+
+/* Spotlight */
+
+.onboarding-spotlight {
+  position: fixed;
+  z-index: 100001;
+
+  border-radius: 12px;
+
+  background: transparent;
+
+  box-shadow:
+    0 0 0 9999px rgba(8, 12, 20, 0.68),
+    0 0 0 2px rgba(255, 255, 255, 0.95),
+    0 0 28px rgba(255, 255, 255, 0.35);
+
+  pointer-events: none;
+
+  animation:
+    onboardingPulse 2s ease-in-out infinite;
+}
+
+@keyframes onboardingPulse {
+  0% {
+    box-shadow:
+      0 0 0 9999px rgba(8, 12, 20, 0.68),
+      0 0 0 2px rgba(255, 255, 255, 0.95),
+      0 0 18px rgba(255, 255, 255, 0.25);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 9999px rgba(8, 12, 20, 0.68),
+      0 0 0 3px rgba(255, 255, 255, 1),
+      0 0 32px rgba(255, 255, 255, 0.5);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 9999px rgba(8, 12, 20, 0.68),
+      0 0 0 2px rgba(255, 255, 255, 0.95),
+      0 0 18px rgba(255, 255, 255, 0.25);
+  }
+}
+
+/* Information card */
+
+.onboarding-card {
+  position: fixed;
+  z-index: 100002;
+
+  left: 50%;
+  bottom: 40px;
+
+  transform: translateX(-50%);
+
+  width: min(520px, calc(100vw - 40px));
+
+  display: flex;
+  gap: 18px;
+
+  padding: 22px;
+
+  border-radius: 18px;
+
+  background: #ffffff;
+
+  color: #111827;
+
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.3);
+
+  pointer-events: auto;
+
+  animation:
+    onboardingCardIn 0.35s ease-out;
+}
+
+@keyframes onboardingCardIn {
+  from {
+    opacity: 0;
+    transform:
+      translate(-50%, 20px)
+      scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform:
+      translate(-50%, 0)
+      scale(1);
+  }
+}
+
+.onboarding-card-icon {
+  flex-shrink: 0;
+
+  width: 48px;
+  height: 48px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 14px;
+
+  background: #f3f4f6;
+
+  font-size: 24px;
+}
+
+.onboarding-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.onboarding-step-count {
+  margin-bottom: 5px;
+
+  font-size: 11px;
+  font-weight: 700;
+
+  letter-spacing: 0.12em;
+
+  color: #6b7280;
+}
+
+.onboarding-card h2 {
+  margin: 0 0 7px;
+
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.onboarding-card p {
+  margin: 0;
+
+  font-size: 14px;
+  line-height: 1.6;
+
+  color: #5b6472;
+}
+
+.onboarding-progress {
+  display: flex;
+  gap: 5px;
+
+  margin-top: 18px;
+}
+
+.onboarding-progress span {
+  width: 22px;
+  height: 4px;
+
+  border-radius: 999px;
+
+  background: #e5e7eb;
+
+  transition:
+    width 0.25s ease,
+    background 0.25s ease;
+}
+
+.onboarding-progress span.active {
+  width: 34px;
+  background: #111827;
+}
+
+.onboarding-progress span.completed {
+  background: #9ca3af;
+}
+
+.onboarding-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-top: 20px;
+}
+
+.onboarding-skip,
+.onboarding-back,
+.onboarding-next {
+  border: none;
+  cursor: pointer;
+
+  font-family: inherit;
+
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.onboarding-skip {
+  padding: 0;
+
+  background: transparent;
+
+  color: #6b7280;
+
+  font-size: 13px;
+}
+
+.onboarding-navigation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.onboarding-back {
+  padding: 10px 14px;
+
+  background: #f3f4f6;
+
+  color: #374151;
+
+  border-radius: 9px;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.onboarding-next {
+  padding: 10px 17px;
+
+  background: #111827;
+
+  color: white;
+
+  border-radius: 9px;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.onboarding-skip:hover,
+.onboarding-back:hover,
+.onboarding-next:hover {
+  transform: translateY(-1px);
+}
+
+.onboarding-next:hover {
+  opacity: 0.9;
+}
+
+/* Mobile */
+
+@media (max-width: 700px) {
+  .onboarding-card {
+    bottom: 20px;
+
+    width: calc(100vw - 24px);
+
+    padding: 18px;
+
+    gap: 12px;
+  }
+
+  .onboarding-card-icon {
+    width: 40px;
+    height: 40px;
+
+    font-size: 20px;
+  }
+
+  .onboarding-card h2 {
+    font-size: 18px;
+  }
+
+  .onboarding-card p {
+    font-size: 13px;
+  }
+}

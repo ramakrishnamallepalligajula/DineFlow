@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useState } from "react";
 
 
@@ -17,6 +18,8 @@ import PeakHours from "../components/PeakHours";
 import AdminNavigation from "../components/AdminNavigation";
 
 import PrinterManagement from "../components/PrinterManagement";
+import OnboardingTour from "../components/onboarding/OnboardingTour";
+import { useAuth } from "../context/AuthContext";
 
 
 
@@ -36,6 +39,7 @@ function AdminDashboard() {
 
   const [dashboard, setDashboard] = useState(null);
 
+  const { restaurant } = useAuth();
 
 
   const [revenueData, setRevenueData] = useState([]);
@@ -2841,6 +2845,9 @@ function AdminDashboard() {
 
 
       </main>
+      <OnboardingTour
+      restaurantId={restaurant?._id}
+    />
 
     </div>
 
