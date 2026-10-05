@@ -587,7 +587,7 @@ const orderRoutes = (io) => {
             combinedItems.values()
           );
 
-          // ===================================================
+// ===================================================
 // GST CALCULATION
 // ===================================================
 
@@ -609,28 +609,50 @@ const gstRate =
     ? configuredGstRate
     : 0;
 
-const subtotal = Number(
+// Customer-facing total already includes GST.
+// Example:
+// ₹220 at 5% GST
+// Taxable value = 220 / 1.05 = ₹209.52
+
+const total = Number(
   Number(totalPrice).toFixed(2)
 );
 
-const cgstRate = gstRate / 2;
-const sgstRate = gstRate / 2;
+let subtotal = total;
+let cgst = 0;
+let sgst = 0;
+let tax = 0;
 
-const cgst = Number(
-  ((subtotal * cgstRate) / 100).toFixed(2)
-);
+if (gstRate > 0) {
+  subtotal = Number(
+    (total / (1 + gstRate / 100)).toFixed(2)
+  );
 
-const sgst = Number(
-  ((subtotal * sgstRate) / 100).toFixed(2)
-);
+  const cgstRate = gstRate / 2;
+  const sgstRate = gstRate / 2;
 
-const tax = Number(
-  (cgst + sgst).toFixed(2)
-);
+  cgst = Number(
+    ((subtotal * cgstRate) / 100).toFixed(2)
+  );
 
-const total = Number(
-  (subtotal + tax).toFixed(2)
-);
+  sgst = Number(
+    ((subtotal * sgstRate) / 100).toFixed(2)
+  );
+
+  tax = Number(
+    (cgst + sgst).toFixed(2)
+  );
+}
+
+console.log("🧾 GST calculation:", {
+  gstEnabled,
+  gstRate,
+  subtotal,
+  cgst,
+  sgst,
+  tax,
+  total,
+});
 
 console.log("🧾 GST calculation:", {
   gstEnabled,
@@ -836,6 +858,7 @@ try {
 
   const printJob = await createBillingPrintJob({
     bill,
+    restaurant,
     io,
   });
 

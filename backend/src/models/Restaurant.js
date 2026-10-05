@@ -53,6 +53,12 @@ const restaurantSchema = new mongoose.Schema(
         default: 5,
         min: 0,
       },
+      gstin: {
+        type: String,
+        default: "",
+        trim: true,
+        uppercase: true,
+      },
     },
 
     subscriptionStatus: {
