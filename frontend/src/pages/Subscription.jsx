@@ -1,12 +1,14 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./Subscription.css";
 
 const plans = [
   {
     id: "basic",
+    apiPlan: "BASIC",
     name: "Basic",
-    monthly: 699,
-    description: "Everything you need to start digital restaurant ordering.",
+    description:
+      "Everything you need to start digital restaurant ordering.",
     features: [
       "QR Code Ordering",
       "Digital Menu",
@@ -18,10 +20,11 @@ const plans = [
   },
   {
     id: "pro",
+    apiPlan: "PRO",
     name: "Pro",
-    monthly: 1499,
     popular: true,
-    description: "Powerful tools for growing restaurants.",
+    description:
+      "Powerful tools for growing restaurants.",
     features: [
       "Everything in Basic",
       "Advanced Dashboard",
@@ -32,75 +35,136 @@ const plans = [
       "Advanced Business Insights",
     ],
   },
-  {
-    id: "premium",
-    name: "Premium",
-    monthly: 2499,
-    description: "Complete restaurant management for high-volume businesses.",
-    features: [
-      "Everything in Pro",
-      "Advanced Analytics",
-      "Priority Support",
-      "Multiple Operational Features",
-      "Premium Business Tools",
-      "Future Premium Features",
-    ],
-  },
 ];
 
 const billingOptions = {
   monthly: {
+    apiValue: "MONTHLY",
     label: "Monthly",
     suffix: "/month",
-    multiplier: 1,
+    prices: {
+      basic: 899,
+      pro: 1499,
+    },
     saving: null,
   },
+
   sixMonths: {
+    apiValue: "SIX_MONTHS",
     label: "6 Months",
     suffix: "/6 months",
+    prices: {
+      basic: 4499,
+      pro: 7499,
+    },
+    saving: "Save ~17%",
     multiplier: 6,
-    saving: "Save 10%",
   },
+
   twelveMonths: {
+    apiValue: "TWELVE_MONTHS",
     label: "12 Months",
     suffix: "/year",
+    prices: {
+      basic: 7999,
+      pro: 14999,
+    },
+    saving: "Save ~26%",
     multiplier: 12,
-    saving: "Save 20%",
   },
 };
 
 function SubscriptionPlans() {
+  const navigate = useNavigate();
+
   const [billingPeriod, setBillingPeriod] =
     useState("monthly");
+
+  const [loadingPlan, setLoadingPlan] =
+    useState(null);
+
+  const [error, setError] =
+    useState("");
 
   const selectedBilling =
     billingOptions[billingPeriod];
 
-  const calculatePrice = (monthlyPrice) => {
-    if (billingPeriod === "monthly") {
-      return monthlyPrice;
+  // ==========================================
+  // START FREE TRIAL
+  // ==========================================
+
+  const handleStartTrial = async (plan) => {
+    if (loadingPlan) {
+      return;
     }
 
-    if (billingPeriod === "sixMonths") {
-      return Math.round(
-        monthlyPrice * 6 * 0.9
+    setError("");
+    setLoadingPlan(plan.id);
+
+    try {
+      const token =
+        localStorage.getItem("token");
+
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      const response = await fetch(
+        "https://dineflow-050e.onrender.com/api/restaurants/start-trial",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            plan: plan.apiPlan,
+
+            billingPeriod:
+              selectedBilling.apiValue,
+          }),
+        }
       );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Failed to start free trial"
+        );
+      }
+
+      console.log(
+        "🎉 Trial started successfully:",
+        data
+      );
+
+      // ==========================================
+      // TRIAL STARTED
+      // ==========================================
+
+      navigate("/admin");
+    } catch (error) {
+      console.error(
+        "❌ Trial start error:",
+        error
+      );
+
+      setError(
+        error.message ||
+          "Something went wrong while starting your trial."
+      );
+    } finally {
+      setLoadingPlan(null);
     }
-
-    return Math.round(
-      monthlyPrice * 12 * 0.8
-    );
-  };
-
-  const getMonthlyEquivalent = (monthlyPrice) => {
-    if (billingPeriod === "monthly") {
-      return null;
-    }
-
-    return Math.round(
-      calculatePrice(monthlyPrice) /
-        selectedBilling.multiplier
-    );
   };
 
   return (
@@ -113,14 +177,21 @@ function SubscriptionPlans() {
       <header className="subscription-header">
 
         <div className="subscription-brand">
+
           <div className="subscription-brand-icon">
             🍽️
           </div>
 
           <div>
-            <strong>DineFlow</strong>
-            <span>Restaurant OS</span>
+            <strong>
+              DineFlow
+            </strong>
+
+            <span>
+              Restaurant OS
+            </span>
           </div>
+
         </div>
 
         <div className="trial-badge">
@@ -163,36 +234,64 @@ function SubscriptionPlans() {
 
           {Object.entries(
             billingOptions
-          ).map(([key, option]) => (
+          ).map(
+            ([key, option]) => (
 
-            <button
-              key={key}
-              type="button"
-              className={
-                billingPeriod === key
-                  ? "active"
-                  : ""
-              }
-              onClick={() =>
-                setBillingPeriod(key)
-              }
-            >
-              <span>
-                {option.label}
-              </span>
+              <button
+                key={key}
+                type="button"
+                className={
+                  billingPeriod === key
+                    ? "active"
+                    : ""
+                }
+                onClick={() => {
+                  setBillingPeriod(key);
+                  setError("");
+                }}
+              >
 
-              {option.saving && (
-                <small>
-                  {option.saving}
-                </small>
-              )}
-            </button>
+                <span>
+                  {option.label}
+                </span>
 
-          ))}
+                {option.saving && (
+                  <small>
+                    {option.saving}
+                  </small>
+                )}
+
+              </button>
+
+            )
+          )}
 
         </div>
 
       </div>
+
+      {/* =========================
+          ERROR MESSAGE
+      ========================= */}
+
+      {error && (
+        <div
+          style={{
+            maxWidth: "1100px",
+            margin: "20px auto",
+            padding: "14px 18px",
+            borderRadius: "10px",
+            background: "#fff1f2",
+            color: "#be123c",
+            border:
+              "1px solid #fecdd3",
+            textAlign: "center",
+            fontWeight: 600,
+          }}
+        >
+          {error}
+        </div>
+      )}
 
       {/* =========================
           PLANS
@@ -202,14 +301,31 @@ function SubscriptionPlans() {
 
         {plans.map((plan) => {
 
-          const price = calculatePrice(
-            plan.monthly
-          );
+          const price =
+            selectedBilling.prices[
+              plan.id
+            ];
 
-          const monthlyEquivalent =
-            getMonthlyEquivalent(
-              plan.monthly
-            );
+          let monthlyEquivalent = null;
+
+          if (
+            billingPeriod ===
+            "sixMonths"
+          ) {
+            monthlyEquivalent =
+              Math.round(price / 6);
+          }
+
+          if (
+            billingPeriod ===
+            "twelveMonths"
+          ) {
+            monthlyEquivalent =
+              Math.round(price / 12);
+          }
+
+          const isLoading =
+            loadingPlan === plan.id;
 
           return (
             <article
@@ -221,11 +337,19 @@ function SubscriptionPlans() {
               }`}
             >
 
+              {/* =========================
+                  POPULAR BADGE
+              ========================= */}
+
               {plan.popular && (
                 <div className="popular-badge">
                   MOST POPULAR
                 </div>
               )}
+
+              {/* =========================
+                  PLAN HEADER
+              ========================= */}
 
               <div className="subscription-card-header">
 
@@ -238,6 +362,10 @@ function SubscriptionPlans() {
                 </p>
 
               </div>
+
+              {/* =========================
+                  PRICE
+              ========================= */}
 
               <div className="subscription-price">
 
@@ -257,6 +385,10 @@ function SubscriptionPlans() {
 
               </div>
 
+              {/* =========================
+                  MONTHLY EQUIVALENT
+              ========================= */}
+
               {monthlyEquivalent && (
                 <div className="monthly-equivalent">
                   ≈ ₹
@@ -267,16 +399,36 @@ function SubscriptionPlans() {
                 </div>
               )}
 
+              {/* =========================
+                  FREE TRIAL
+              ========================= */}
+
               <div className="trial-message">
                 🎁 7-day free trial included
               </div>
 
+              {/* =========================
+                  START TRIAL BUTTON
+              ========================= */}
+
               <button
                 type="button"
                 className="start-trial-button"
+                disabled={loadingPlan !== null}
+                onClick={() =>
+                  handleStartTrial(plan)
+                }
               >
-                Start Free Trial →
+
+                {isLoading
+                  ? "Starting Trial..."
+                  : "Start Free Trial →"}
+
               </button>
+
+              {/* =========================
+                  FEATURES
+              ========================= */}
 
               <div className="features-divider" />
 
@@ -288,7 +440,11 @@ function SubscriptionPlans() {
 
                 {plan.features.map(
                   (feature) => (
-                    <li key={feature}>
+
+                    <li
+                      key={feature}
+                    >
+
                       <span className="feature-check">
                         ✓
                       </span>
@@ -296,7 +452,9 @@ function SubscriptionPlans() {
                       <span>
                         {feature}
                       </span>
+
                     </li>
+
                   )
                 )}
 
@@ -309,12 +467,13 @@ function SubscriptionPlans() {
       </section>
 
       {/* =========================
-          FOOTER NOTE
+          FOOTER
       ========================= */}
 
       <section className="subscription-footer">
 
         <div>
+
           <strong>
             Start risk-free with DineFlow.
           </strong>
@@ -324,6 +483,7 @@ function SubscriptionPlans() {
             experience DineFlow before committing
             to a paid subscription.
           </p>
+
         </div>
 
       </section>

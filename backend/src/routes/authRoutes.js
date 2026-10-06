@@ -429,7 +429,7 @@ router.get(
    GET CURRENT USER
 ========================================================= */
 
-router.get(
+/*router.get(
   "/me",
   authMiddleware,
   async (req, res) => {
@@ -471,6 +471,80 @@ router.get(
           email: restaurant.email,
           phone: restaurant.phone,
           address: restaurant.address,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "Get current user error:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Server error while fetching user",
+      });
+    }
+  }
+);*/
+
+// =========================================================
+// GET CURRENT USER
+// =========================================================
+
+router.get(
+  "/me",
+  authMiddleware,
+  async (req, res) => {
+    try {
+      const user = await User.findById(
+        req.user.userId
+      ).select("-passwordHash");
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      const restaurant =
+        await Restaurant.findById(
+          user.restaurantId
+        );
+
+      if (!restaurant) {
+        return res.status(404).json({
+          message:
+            "Restaurant associated with this account was not found",
+        });
+      }
+
+      // ==========================================
+      // RESPONSE
+      // ==========================================
+
+      return res.status(200).json({
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          restaurantId:
+            user.restaurantId,
+        },
+
+        restaurant: {
+          id: restaurant._id,
+          name: restaurant.name,
+          email: restaurant.email,
+          phone: restaurant.phone,
+          address: restaurant.address,
+
+          // ==========================================
+          // SUBSCRIPTION
+          // ==========================================
+
+          subscription:
+            restaurant.subscription || null,
         },
       });
     } catch (error) {

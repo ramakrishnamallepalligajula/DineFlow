@@ -33,11 +33,57 @@ const restaurantSchema = new mongoose.Schema(
       required: true,
     },
 
-    plan: {
-      type: String,
-      enum: ["free", "pro"],
-      default: "free",
-    },
+    // =========================================
+   // SUBSCRIPTION
+  // =========================================
+subscription: {
+  plan: {
+    type: String,
+    enum: ["BASIC", "PRO"],
+    default: null,
+  },
+
+  billingPeriod: {
+    type: String,
+    enum: [
+      "MONTHLY",
+      "SIX_MONTHS",
+      "TWELVE_MONTHS",
+    ],
+    default: null,
+  },
+
+  status: {
+    type: String,
+    enum: [
+      "TRIALING",
+      "ACTIVE",
+      "EXPIRED",
+      "CANCELLED",
+    ],
+    default: "TRIALING",
+  },
+
+  trialStartedAt: {
+    type: Date,
+    default: null,
+  },
+
+  trialEndsAt: {
+    type: Date,
+    default: null,
+  },
+
+  currentPeriodStart: {
+    type: Date,
+    default: null,
+  },
+
+  currentPeriodEnd: {
+    type: Date,
+    default: null,
+  },
+},
 
     // =========================================
     // GST / TAX SETTINGS
@@ -59,12 +105,6 @@ const restaurantSchema = new mongoose.Schema(
         trim: true,
         uppercase: true,
       },
-    },
-
-    subscriptionStatus: {
-      type: String,
-      enum: ["active", "inactive", "expired"],
-      default: "active",
     },
   },
   {

@@ -7,10 +7,6 @@ import requireRole from "../middleware/roleMiddleware.js";
 const router = express.Router();
 
 // ==========================================
-// GET CURRENT RESTAURANT
-// ==========================================
-
-// ==========================================
 // UPDATE CURRENT RESTAURANT
 // ==========================================
 
@@ -22,7 +18,8 @@ router.put(
     try {
       if (!req.user.restaurantId) {
         return res.status(400).json({
-          message: "Restaurant not linked to this user",
+          message:
+            "Restaurant not linked to this user",
         });
       }
 
@@ -35,7 +32,8 @@ router.put(
 
       if (!name || !name.trim()) {
         return res.status(400).json({
-          message: "Restaurant name is required",
+          message:
+            "Restaurant name is required",
         });
       }
 
@@ -64,7 +62,8 @@ router.put(
           gstRate < 0
         ) {
           return res.status(400).json({
-            message: "Invalid GST rate",
+            message:
+              "Invalid GST rate",
           });
         }
 
@@ -105,7 +104,8 @@ router.put(
 
       if (!restaurant) {
         return res.status(404).json({
-          message: "Restaurant not found",
+          message:
+            "Restaurant not found",
         });
       }
 
@@ -119,9 +119,10 @@ router.put(
         restaurant.taxSettings
       );
 
-      res.json({
+      return res.json({
         message:
           "Restaurant updated successfully",
+
         restaurant,
       });
     } catch (error) {
@@ -130,7 +131,7 @@ router.put(
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         message:
           "Failed to update restaurant",
       });
@@ -139,72 +140,182 @@ router.put(
 );
 
 // ==========================================
-// UPDATE CURRENT RESTAURANT
+// START 7-DAY FREE TRIAL
 // ==========================================
 
-router.put(
-  "/me",
+router.post(
+  "/start-trial",
   authMiddleware,
   requireRole("admin"),
   async (req, res) => {
     try {
+      // ==========================================
+      // CHECK RESTAURANT LINK
+      // ==========================================
+
       if (!req.user.restaurantId) {
         return res.status(400).json({
-          message: "Restaurant not linked to this user",
+          message:
+            "Restaurant not linked to this user",
         });
       }
+
+      // ==========================================
+      // GET SELECTED PLAN
+      // ==========================================
 
       const {
-        name,
-        phone,
-        address,
+        plan,
+        billingPeriod,
       } = req.body;
 
-      if (!name || !name.trim()) {
+      const allowedPlans = [
+        "BASIC",
+        "PRO",
+      ];
+
+      const allowedBillingPeriods = [
+        "MONTHLY",
+        "SIX_MONTHS",
+        "TWELVE_MONTHS",
+      ];
+
+      // ==========================================
+      // VALIDATE PLAN
+      // ==========================================
+
+      if (!allowedPlans.includes(plan)) {
         return res.status(400).json({
-          message: "Restaurant name is required",
+          message:
+            "Invalid subscription plan",
         });
       }
 
-      const restaurant = await Restaurant.findOneAndUpdate(
-        {
+      // ==========================================
+      // VALIDATE BILLING PERIOD
+      // ==========================================
+
+      if (
+        !allowedBillingPeriods.includes(
+          billingPeriod
+        )
+      ) {
+        return res.status(400).json({
+          message:
+            "Invalid billing period",
+        });
+      }
+
+      // ==========================================
+      // FIND RESTAURANT
+      // ==========================================
+
+      const restaurant =
+        await Restaurant.findOne({
           _id: req.user.restaurantId,
           owner: req.user.userId,
-        },
-        {
-          name: name.trim(),
-          phone: phone || "",
-          address: address || "",
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+        });
 
       if (!restaurant) {
         return res.status(404).json({
-          message: "Restaurant not found",
+          message:
+            "Restaurant not found",
         });
       }
 
-      console.log(
-        "✅ Restaurant updated:",
-        restaurant.name
+      // ==========================================
+      // PREVENT MULTIPLE FREE TRIALS
+      // ==========================================
+
+      if (
+        restaurant.subscription?.trialStartedAt
+      ) {
+        return res.status(400).json({
+          message:
+            "Free trial has already been used",
+        });
+      }
+
+      // ==========================================
+      // CREATE TRIAL DATES
+      // ==========================================
+
+      const trialStartedAt = new Date();
+
+      const trialEndsAt = new Date(
+        trialStartedAt
       );
 
-      res.json({
-        message: "Restaurant updated successfully",
-        restaurant,
+      trialEndsAt.setDate(
+        trialEndsAt.getDate() + 7
+      );
+
+      // ==========================================
+      // SAVE SUBSCRIPTION
+      // ==========================================
+
+      restaurant.subscription = {
+        plan,
+        billingPeriod,
+        status: "TRIALING",
+
+        trialStartedAt,
+        trialEndsAt,
+
+        currentPeriodStart: null,
+        currentPeriodEnd: null,
+      };
+
+      await restaurant.save();
+
+      // ==========================================
+      // LOG
+      // ==========================================
+
+      console.log(
+        "🎉 7-day trial started:",
+        {
+          restaurant:
+            restaurant.name,
+
+          restaurantId:
+            restaurant._id,
+
+          plan,
+
+          billingPeriod,
+
+          trialStartedAt,
+
+          trialEndsAt,
+        }
+      );
+
+      // ==========================================
+      // RESPONSE
+      // ==========================================
+
+      return res.status(200).json({
+        message:
+          "7-day free trial started successfully",
+
+        subscription:
+          restaurant.subscription,
+
+        restaurant: {
+          id: restaurant._id,
+          name: restaurant.name,
+        },
       });
     } catch (error) {
       console.error(
-        "❌ Failed to update restaurant:",
+        "❌ Failed to start free trial:",
         error
       );
 
-      res.status(500).json({
-        message: "Failed to update restaurant",
+      return res.status(500).json({
+        message:
+          "Failed to start free trial",
       });
     }
   }
