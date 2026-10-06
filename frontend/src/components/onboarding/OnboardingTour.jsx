@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import onboardingSteps from "./onboardingSteps";
 import "./OnboardingTour.css";
+import { useNavigate } from "react-router-dom";
 
 function OnboardingTour({ restaurantId }) {
+  const navigate = useNavigate();
   const storageKey = `dineflow_onboarding_${restaurantId || "restaurant"}`;
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -107,19 +109,22 @@ function OnboardingTour({ restaurantId }) {
     setVisible(false);
   };
 
-  const nextStep = () => {
-    if (
-      currentStep ===
-      onboardingSteps.length - 1
-    ) {
-      closeTour();
-      return;
-    }
-
-    setCurrentStep(
-      (current) => current + 1
+ const nextStep = () => {
+  if (currentStep === onboardingSteps.length - 1) {
+    localStorage.setItem(
+      storageKey,
+      "completed"
     );
-  };
+
+    setVisible(false);
+
+    navigate("/subscription");
+
+    return;
+  }
+
+  setCurrentStep((current) => current + 1);
+};
 
   const previousStep = () => {
     setCurrentStep(
