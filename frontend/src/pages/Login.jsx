@@ -14,7 +14,7 @@ function Login() {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, refreshUser } = useAuth();
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -40,24 +40,86 @@ function Login() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Login failed"
-        );
+        throw new Error(data.message || "Login failed");
       }
 
-      // Save authentication information
+      // Save authentication information first
       login(
-        data.token, 
+        data.token,
         data.user,
         data.restaurant
       );
 
-      // Go to admin dashboard
-      if (data.user.role === "staff") {
-        navigate("/kitchen");
-      } else {
-        navigate("/admin");
+      /*
+       * IMPORTANT:
+       * Get the latest restaurant/subscription information
+       * from the backend after login.
+       */
+      let latestRestaurant = data.restaurant;
+
+      try {
+        const refreshedData = await refreshUser();
+
+        if (refreshedData?.restaurant) {
+          latestRestaurant = refreshedData.restaurant;
+        }
+      } catch (refreshError) {
+        console.error(
+          "Failed to refresh user after login:",
+          refreshError
+        );
       }
+
+      // ===============================
+      // STAFF LOGIN
+      // ===============================
+
+      if (data.user.role === "staff") {
+        navigate("/kitchen", {
+          replace: true,
+        });
+        return;
+      }
+
+      // ===============================
+      // ADMIN LOGIN
+      // ===============================
+
+      if (data.user.role === "admin") {
+        const subscription =
+          latestRestaurant?.subscription;
+
+        const subscriptionStatus =
+          subscription?.status;
+
+        const hasActiveAccess =
+          subscriptionStatus === "TRIALING" ||
+          subscriptionStatus === "ACTIVE";
+
+        console.log(
+          "🔐 Login subscription status:",
+          subscriptionStatus
+        );
+
+        if (hasActiveAccess) {
+          // Active plan / free trial
+          navigate("/admin", {
+            replace: true,
+          });
+        } else {
+          // No subscription / expired / cancelled
+          navigate("/subscription", {
+            replace: true,
+          });
+        }
+
+        return;
+      }
+
+      // Unknown role
+      navigate("/login", {
+        replace: true,
+      });
     } catch (error) {
       console.error("Login failed:", error);
       setError(error.message);
@@ -79,10 +141,12 @@ function Login() {
 
           {/* Logo */}
 
-          <div className="brand" 
+          <div
+            className="brand"
             onClick={() => navigate("/")}
             role="button"
-            tabIndex={0}>
+            tabIndex={0}
+          >
             <div className="brand-icon">
               👨‍🍳
             </div>
@@ -361,17 +425,20 @@ function Login() {
           </div>
 
           {/* Contact */}
-          <div className="register-link">
-  <p>Don't have a restaurant account?</p>
 
-  <button
-  className="Create-account"
-    type="button"
-    onClick={() => navigate("/register")}
-  >
-    Create Restaurant Account
-  </button>
-</div>
+          <div className="register-link">
+            <p>
+              Don't have a restaurant account?
+            </p>
+
+            <button
+              className="Create-account"
+              type="button"
+              onClick={() => navigate("/register")}
+            >
+              Create Restaurant Account
+            </button>
+          </div>
 
         </div>
 

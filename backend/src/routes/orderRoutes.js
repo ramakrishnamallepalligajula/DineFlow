@@ -10,6 +10,7 @@ import requireRole from "../middleware/roleMiddleware.js";
 import { createKitchenPrintJob,createBillingPrintJob } from "../services/printJobService.js";
 import Restaurant from "../models/Restaurant.js";
 import Bill from "../models/Bill.js";
+import subscriptionMiddleware from "../middleware/subscriptionMiddleware.js";
 
 const orderRoutes = (io) => {
   const router = express.Router();
@@ -77,6 +78,80 @@ const orderRoutes = (io) => {
             "Table is not linked to a restaurant",
         });
       }
+      // =====================================================
+// CHECK RESTAURANT SUBSCRIPTION
+// =====================================================
+
+const restaurant = await Restaurant.findById(
+  restaurantId
+).select("subscription");
+
+if (!restaurant) {
+  return res.status(404).json({
+    message: "Restaurant not found",
+  });
+}
+
+const subscription = restaurant.subscription;
+
+if (!subscription) {
+  return res.status(403).json({
+    message:
+      "This restaurant does not have an active subscription.",
+    code: "SUBSCRIPTION_REQUIRED",
+  });
+}
+
+// Check free trial
+if (subscription.status === "TRIALING") {
+  if (
+    !subscription.trialEndsAt ||
+    new Date() >= new Date(subscription.trialEndsAt)
+  ) {
+    subscription.status = "EXPIRED";
+    await restaurant.save();
+
+    return res.status(403).json({
+      message:
+        "This restaurant's free trial has expired.",
+      code: "TRIAL_EXPIRED",
+    });
+  }
+}
+
+// Check paid subscription
+if (subscription.status === "ACTIVE") {
+  if (
+    subscription.currentPeriodEnd &&
+    new Date() >= new Date(subscription.currentPeriodEnd)
+  ) {
+    subscription.status = "EXPIRED";
+    await restaurant.save();
+
+    return res.status(403).json({
+      message:
+        "This restaurant's subscription has expired.",
+      code: "SUBSCRIPTION_EXPIRED",
+    });
+  }
+}
+
+// Block expired / cancelled subscriptions
+if (
+  subscription.status === "EXPIRED" ||
+  subscription.status === "CANCELLED"
+) {
+  return res.status(403).json({
+    message:
+      "This restaurant's subscription is not active.",
+    code:
+      subscription.status === "EXPIRED"
+        ? "SUBSCRIPTION_EXPIRED"
+        : "SUBSCRIPTION_CANCELLED",
+  });
+}
+
+// Only TRIALING / ACTIVE can continue.
 
       // =====================================================
       // FIND ACTIVE TABLE SESSION
@@ -369,6 +444,7 @@ const orderRoutes = (io) => {
   router.get(
     "/",
     authMiddleware,
+    subscriptionMiddleware,
     requireRole("admin", "staff"),
     async (req, res) => {
       try {
@@ -955,6 +1031,7 @@ try {
   router.put(
     "/:id/status",
     authMiddleware,
+    subscriptionMiddleware,
     requireRole("admin", "staff"),
     async (req, res) => {
       try {

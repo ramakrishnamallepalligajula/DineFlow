@@ -1,18 +1,3 @@
-/*import { Navigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-
-function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-}
-
-export default ProtectedRoute;*/
-
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
@@ -23,7 +8,30 @@ function ProtectedRoute({
   const {
     isAuthenticated,
     user,
+    restaurant,
+    loading,
   } = useAuth();
+
+  /* =========================
+     AUTH LOADING
+  ========================= */
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: "18px",
+          fontWeight: 600,
+        }}
+      >
+        Loading DineFlow...
+      </div>
+    );
+  }
 
   /* =========================
      NOT AUTHENTICATED
@@ -62,6 +70,42 @@ function ProtectedRoute({
       />
     );
   }
+
+  /* =========================
+     SUBSCRIPTION
+  ========================= */
+
+  const subscription =
+    restaurant?.subscription;
+
+  const subscriptionStatus =
+    subscription?.status;
+
+  const hasActiveSubscription =
+    subscriptionStatus ===
+      "TRIALING" ||
+    subscriptionStatus ===
+      "ACTIVE";
+
+  /* =========================
+     NO SUBSCRIPTION
+  ========================= */
+
+  if (
+    !hasActiveSubscription
+  ) {
+    return (
+      <Navigate
+        to="/subscription"
+        replace
+      />
+    );
+  }
+
+  /* =========================
+     ACTIVE SUBSCRIPTION
+     → ALLOW ACCESS
+  ========================= */
 
   return children;
 }

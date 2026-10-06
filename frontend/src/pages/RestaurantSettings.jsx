@@ -36,7 +36,7 @@ function RestaurantSettings() {
         setError("");
 
         const response = await fetch(
-          `${API_URL}/api/restaurants/me`,
+          `${API_URL}/api/auth/me`,
           {
             headers: {
               Authorization: `Bearer ${token}`,

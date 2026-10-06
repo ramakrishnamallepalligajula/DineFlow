@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Subscription.css";
+import { useAuth } from "../context/AuthContext";
+
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "http://localhost:3000";
 
 const plans = [
   {
@@ -58,7 +63,6 @@ const billingOptions = {
       pro: 7499,
     },
     saving: "Save ~17%",
-    multiplier: 6,
   },
 
   twelveMonths: {
@@ -70,7 +74,6 @@ const billingOptions = {
       pro: 14999,
     },
     saving: "Save ~26%",
-    multiplier: 12,
   },
 };
 
@@ -83,8 +86,13 @@ function SubscriptionPlans() {
   const [loadingPlan, setLoadingPlan] =
     useState(null);
 
-  const [error, setError] =
-    useState("");
+  const [error, setError] = useState("");
+
+  const [showWelcome, setShowWelcome] =
+    useState(false);
+
+  const [startedPlan, setStartedPlan] =
+    useState(null);
 
   const selectedBilling =
     billingOptions[billingPeriod];
@@ -111,7 +119,7 @@ function SubscriptionPlans() {
       }
 
       const response = await fetch(
-        "https://dineflow-050e.onrender.com/api/restaurants/start-trial",
+        `${API_URL}/api/restaurants/start-trial`,
         {
           method: "POST",
 
@@ -148,10 +156,24 @@ function SubscriptionPlans() {
       );
 
       // ==========================================
-      // TRIAL STARTED
+      // SAVE SELECTED PLAN
       // ==========================================
 
-      navigate("/admin");
+      setStartedPlan({
+        name: plan.name,
+        billingPeriod:
+          selectedBilling.label,
+        trialEndsAt:
+          data.subscription
+            ?.trialEndsAt,
+      });
+
+      // ==========================================
+      // SHOW WELCOME POPUP
+      // ==========================================
+
+      setShowWelcome(true);
+
     } catch (error) {
       console.error(
         "❌ Trial start error:",
@@ -167,12 +189,92 @@ function SubscriptionPlans() {
     }
   };
 
+  // ==========================================
+  // CONTINUE TO DASHBOARD
+  // ==========================================
+
+const handleContinue = async () => {
+  try {
+    const token =
+      localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login", {
+        replace: true,
+      });
+
+      return;
+    }
+
+    // Refresh the latest restaurant/subscription
+    // information before entering the dashboard.
+    const response = await fetch(
+      `${API_URL}/api/auth/me`,
+      {
+        method: "GET",
+
+        headers: {
+          Authorization:
+            `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        "Failed to refresh account information"
+      );
+    }
+
+    const data =
+      await response.json();
+
+    // Update localStorage so ProtectedRoute
+    // has the latest subscription.
+    if (data.user) {
+      localStorage.setItem(
+        "user",
+        JSON.stringify(data.user)
+      );
+    }
+
+    if (data.restaurant) {
+      localStorage.setItem(
+        "restaurant",
+        JSON.stringify(
+          data.restaurant
+        )
+      );
+    }
+
+    setShowWelcome(false);
+
+    // Now enter the dashboard.
+    navigate("/admin", {
+      replace: true,
+    });
+  } catch (error) {
+    console.error(
+      "❌ Failed to enter DineFlow:",
+      error
+    );
+
+    // Even if the refresh fails, don't leave
+    // the user trapped on the popup.
+    setShowWelcome(false);
+
+    navigate("/admin", {
+      replace: true,
+    });
+  }
+};
+
   return (
     <div className="subscription-page">
 
-      {/* =========================
+      {/* ======================================
           HEADER
-      ========================= */}
+      ====================================== */}
 
       <header className="subscription-header">
 
@@ -200,9 +302,9 @@ function SubscriptionPlans() {
 
       </header>
 
-      {/* =========================
+      {/* ======================================
           HERO
-      ========================= */}
+      ====================================== */}
 
       <section className="subscription-hero">
 
@@ -224,9 +326,9 @@ function SubscriptionPlans() {
 
       </section>
 
-      {/* =========================
+      {/* ======================================
           BILLING SELECTOR
-      ========================= */}
+      ====================================== */}
 
       <div className="billing-selector-wrapper">
 
@@ -270,32 +372,21 @@ function SubscriptionPlans() {
 
       </div>
 
-      {/* =========================
-          ERROR MESSAGE
-      ========================= */}
+      {/* ======================================
+          ERROR
+      ====================================== */}
 
       {error && (
         <div
-          style={{
-            maxWidth: "1100px",
-            margin: "20px auto",
-            padding: "14px 18px",
-            borderRadius: "10px",
-            background: "#fff1f2",
-            color: "#be123c",
-            border:
-              "1px solid #fecdd3",
-            textAlign: "center",
-            fontWeight: 600,
-          }}
+          className="subscription-error"
         >
           {error}
         </div>
       )}
 
-      {/* =========================
+      {/* ======================================
           PLANS
-      ========================= */}
+      ====================================== */}
 
       <section className="subscription-plans">
 
@@ -306,7 +397,8 @@ function SubscriptionPlans() {
               plan.id
             ];
 
-          let monthlyEquivalent = null;
+          let monthlyEquivalent =
+            null;
 
           if (
             billingPeriod ===
@@ -337,19 +429,11 @@ function SubscriptionPlans() {
               }`}
             >
 
-              {/* =========================
-                  POPULAR BADGE
-              ========================= */}
-
               {plan.popular && (
                 <div className="popular-badge">
                   MOST POPULAR
                 </div>
               )}
-
-              {/* =========================
-                  PLAN HEADER
-              ========================= */}
 
               <div className="subscription-card-header">
 
@@ -362,10 +446,6 @@ function SubscriptionPlans() {
                 </p>
 
               </div>
-
-              {/* =========================
-                  PRICE
-              ========================= */}
 
               <div className="subscription-price">
 
@@ -385,10 +465,6 @@ function SubscriptionPlans() {
 
               </div>
 
-              {/* =========================
-                  MONTHLY EQUIVALENT
-              ========================= */}
-
               {monthlyEquivalent && (
                 <div className="monthly-equivalent">
                   ≈ ₹
@@ -399,36 +475,24 @@ function SubscriptionPlans() {
                 </div>
               )}
 
-              {/* =========================
-                  FREE TRIAL
-              ========================= */}
-
               <div className="trial-message">
                 🎁 7-day free trial included
               </div>
 
-              {/* =========================
-                  START TRIAL BUTTON
-              ========================= */}
-
               <button
                 type="button"
                 className="start-trial-button"
-                disabled={loadingPlan !== null}
+                disabled={
+                  loadingPlan !== null
+                }
                 onClick={() =>
                   handleStartTrial(plan)
                 }
               >
-
                 {isLoading
                   ? "Starting Trial..."
                   : "Start Free Trial →"}
-
               </button>
-
-              {/* =========================
-                  FEATURES
-              ========================= */}
 
               <div className="features-divider" />
 
@@ -440,11 +504,9 @@ function SubscriptionPlans() {
 
                 {plan.features.map(
                   (feature) => (
-
                     <li
                       key={feature}
                     >
-
                       <span className="feature-check">
                         ✓
                       </span>
@@ -452,9 +514,7 @@ function SubscriptionPlans() {
                       <span>
                         {feature}
                       </span>
-
                     </li>
-
                   )
                 )}
 
@@ -466,9 +526,9 @@ function SubscriptionPlans() {
 
       </section>
 
-      {/* =========================
+      {/* ======================================
           FOOTER
-      ========================= */}
+      ====================================== */}
 
       <section className="subscription-footer">
 
@@ -487,6 +547,125 @@ function SubscriptionPlans() {
         </div>
 
       </section>
+
+      {/* ======================================
+          WELCOME POPUP
+      ====================================== */}
+
+      {showWelcome && (
+        <div className="trial-success-overlay">
+
+          {/* Floating particles */}
+
+          <div className="success-particle particle-one">
+            ✦
+          </div>
+
+          <div className="success-particle particle-two">
+            ✦
+          </div>
+
+          <div className="success-particle particle-three">
+            ✦
+          </div>
+
+          <div className="success-particle particle-four">
+            ✦
+          </div>
+
+          <div className="success-particle particle-five">
+            ✦
+          </div>
+
+          {/* Popup */}
+
+          <div className="trial-success-card">
+
+            {/* Animated check */}
+
+            <div className="success-check-wrapper">
+
+              <div className="success-check-circle">
+                <span>✓</span>
+              </div>
+
+            </div>
+
+            {/* Greeting */}
+
+            <div className="trial-success-content">
+
+              <div className="success-small-title">
+                🎉 YOU'RE ALL SET
+              </div>
+
+              <h2>
+                Welcome to DineFlow!
+              </h2>
+
+              <p>
+                Your restaurant is now ready
+                to start its journey with
+                DineFlow.
+              </p>
+
+              {startedPlan && (
+                <div className="trial-details">
+
+                  <div>
+                    <span>
+                      Plan
+                    </span>
+
+                    <strong>
+                      {startedPlan.name}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Billing
+                    </span>
+
+                    <strong>
+                      {startedPlan.billingPeriod}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>
+                      Trial
+                    </span>
+
+                    <strong>
+                      7 Days Free
+                    </strong>
+                  </div>
+
+                </div>
+              )}
+
+              <div className="trial-success-message">
+                🚀 Let's get your restaurant
+                ready for success.
+              </div>
+
+              <button
+                type="button"
+                className="trial-success-button"
+                onClick={
+                  handleContinue
+                }
+              >
+                Enter DineFlow
+                <span>→</span>
+              </button>
+
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

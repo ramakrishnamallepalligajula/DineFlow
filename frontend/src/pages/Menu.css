@@ -1,0 +1,482 @@
+.menu-page {
+  min-height: 100vh;
+  background: #f7f8fa;
+  color: #111827;
+  padding-bottom: 100px;
+}
+
+/* ================================
+   HEADER
+================================ */
+
+.menu-header {
+  padding: 24px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.menu-header h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.menu-header p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* ================================
+   LOADING
+================================ */
+
+.menu-loading {
+  min-height: 70vh;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+}
+
+.menu-loading-icon {
+  width: 72px;
+  height: 72px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  margin-bottom: 18px;
+
+  border-radius: 50%;
+
+  background: #ffffff;
+
+  font-size: 32px;
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.08);
+
+  animation:
+    menuLoadingPulse
+    1.5s ease-in-out infinite;
+}
+
+.menu-loading h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.menu-loading p {
+  margin-top: 8px;
+  color: #6b7280;
+}
+
+@keyframes menuLoadingPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+/* ================================
+   FOOD GRID
+================================ */
+
+.food-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fill,
+      minmax(240px, 1fr)
+    );
+
+  gap: 20px;
+
+  padding: 24px 20px;
+}
+
+/* ================================
+   NO FOOD
+================================ */
+
+.no-food-message {
+  max-width: 420px;
+
+  margin: 80px auto;
+
+  padding: 36px 24px;
+
+  text-align: center;
+
+  background: #ffffff;
+
+  border-radius: 20px;
+
+  box-shadow:
+    0 10px 35px rgba(0, 0, 0, 0.06);
+}
+
+.no-food-icon {
+  font-size: 42px;
+  margin-bottom: 12px;
+}
+
+.no-food-message h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+.no-food-message p {
+  margin: 0;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+/* ================================
+   NORMAL ERROR
+================================ */
+
+.menu-error {
+  max-width: 450px;
+
+  margin: 80px auto;
+
+  padding: 36px 24px;
+
+  text-align: center;
+
+  background: #ffffff;
+
+  border-radius: 20px;
+
+  box-shadow:
+    0 10px 35px rgba(0, 0, 0, 0.06);
+}
+
+.menu-error-icon {
+  font-size: 42px;
+  margin-bottom: 12px;
+}
+
+.menu-error h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+}
+
+.menu-error p {
+  margin: 0;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+/* ================================
+   SUBSCRIPTION BLOCKED
+================================ */
+
+.subscription-blocked-page {
+  min-height: 100vh;
+
+  background:
+    radial-gradient(
+      circle at top,
+      #ffffff 0%,
+      #f4f5f7 55%,
+      #eceef1 100%
+    );
+}
+
+.subscription-blocked-overlay {
+  position: fixed;
+  inset: 0;
+
+  z-index: 9999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 24px;
+
+  background:
+    rgba(15, 23, 42, 0.62);
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.subscription-blocked-card {
+  position: relative;
+
+  width: min(440px, 100%);
+
+  padding: 40px 30px 32px;
+
+  text-align: center;
+
+  background: #ffffff;
+
+  border: 1px solid
+    rgba(255, 255, 255, 0.8);
+
+  border-radius: 26px;
+
+  box-shadow:
+    0 30px 80px
+      rgba(0, 0, 0, 0.22);
+
+  animation:
+    subscriptionPopupIn
+    0.4s
+    cubic-bezier(
+      0.16,
+      1,
+      0.3,
+      1
+    );
+}
+
+/* ================================
+   LOCK ICON
+================================ */
+
+.subscription-blocked-icon {
+  width: 82px;
+  height: 82px;
+
+  margin: 0 auto 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #fff4e5;
+
+  border: 8px solid #fffaf3;
+
+  font-size: 34px;
+
+  animation:
+    subscriptionIconPop
+    0.5s
+    0.2s
+    both;
+}
+
+/* ================================
+   BADGE
+================================ */
+
+.subscription-blocked-badge {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 7px 12px;
+
+  margin-bottom: 14px;
+
+  border-radius: 999px;
+
+  background: #f3f4f6;
+
+  color: #6b7280;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  letter-spacing: 0.08em;
+}
+
+/* ================================
+   TEXT
+================================ */
+
+.subscription-blocked-card h1 {
+  margin: 0 0 14px;
+
+  font-size: 26px;
+
+  line-height: 1.25;
+
+  font-weight: 750;
+
+  color: #111827;
+}
+
+.subscription-main-message {
+  margin: 0 auto;
+
+  max-width: 360px;
+
+  font-size: 15px;
+
+  line-height: 1.65;
+
+  color: #4b5563;
+}
+
+.subscription-contact-message {
+  margin: 14px auto 0;
+
+  max-width: 360px;
+
+  font-size: 14px;
+
+  line-height: 1.6;
+
+  font-weight: 600;
+
+  color: #374151;
+}
+
+/* ================================
+   BUTTON
+================================ */
+
+.subscription-retry-button {
+  width: 100%;
+
+  margin-top: 26px;
+
+  padding: 14px 20px;
+
+  border: none;
+
+  border-radius: 13px;
+
+  background: #111827;
+
+  color: #ffffff;
+
+  font-size: 15px;
+
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.subscription-retry-button:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 10px 25px
+      rgba(17, 24, 39, 0.2);
+}
+
+.subscription-retry-button:active {
+  transform: translateY(0);
+}
+
+.subscription-retry-button:focus-visible {
+  outline: 3px solid
+    rgba(17, 24, 39, 0.25);
+
+  outline-offset: 3px;
+}
+
+/* ================================
+   ANIMATIONS
+================================ */
+
+@keyframes subscriptionPopupIn {
+  from {
+    opacity: 0;
+
+    transform:
+      translateY(20px)
+      scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      translateY(0)
+      scale(1);
+  }
+}
+
+@keyframes subscriptionIconPop {
+  from {
+    opacity: 0;
+
+    transform:
+      scale(0.5)
+      rotate(-10deg);
+  }
+
+  to {
+    opacity: 1;
+
+    transform:
+      scale(1)
+      rotate(0);
+  }
+}
+
+/* ================================
+   MOBILE
+================================ */
+
+@media (max-width: 600px) {
+  .menu-header {
+    padding: 18px 16px;
+  }
+
+  .menu-header h1 {
+    font-size: 22px;
+  }
+
+  .food-grid {
+    grid-template-columns: 1fr;
+
+    padding: 18px 14px;
+
+    gap: 14px;
+  }
+
+  .subscription-blocked-overlay {
+    padding: 16px;
+  }
+
+  .subscription-blocked-card {
+    padding: 32px 22px 26px;
+
+    border-radius: 22px;
+  }
+
+  .subscription-blocked-card h1 {
+    font-size: 23px;
+  }
+
+  .subscription-blocked-icon {
+    width: 72px;
+    height: 72px;
+
+    font-size: 30px;
+  }
+}

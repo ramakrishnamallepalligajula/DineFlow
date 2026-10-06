@@ -5,14 +5,22 @@ import Table from "../models/Table.js";
 
 import authMiddleware from "../middleware/authMiddleware.js";
 import requireRole from "../middleware/roleMiddleware.js";
+import subscriptionMiddleware from "../middleware/subscriptionMiddleware.js";
 
 const router = express.Router();
 
-
 /*
-  GET TABLE BY TABLE ID
-  PUBLIC
+=========================================================
+GET TABLE BY TABLE ID
+PUBLIC CUSTOMER QR ROUTE
+=========================================================
+
+Customers do not have a JWT.
+
+This endpoint only exposes the minimum information
+required to load the restaurant menu.
 */
+
 router.get(
   "/public/:tableId",
   async (req, res) => {
@@ -31,11 +39,12 @@ router.get(
 
       if (table.status === "Inactive") {
         return res.status(400).json({
-          message: "This table is currently inactive",
+          message:
+            "This table is currently inactive",
         });
       }
 
-      res.json({
+      return res.json({
         table: {
           tableId: table.tableId,
           tableNumber: table.tableNumber,
@@ -48,7 +57,7 @@ router.get(
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Failed to fetch table",
       });
     }
@@ -57,29 +66,44 @@ router.get(
 
 
 /*
-  GET ALL TABLES
-  ADMIN ONLY
+=========================================================
+PROTECTED ADMIN / STAFF ROUTES
+=========================================================
 */
+
+router.use(authMiddleware);
+router.use(subscriptionMiddleware);
+
+
+/*
+=========================================================
+GET ALL TABLES
+ADMIN ONLY
+=========================================================
+*/
+
 router.get(
   "/",
-  authMiddleware,
   requireRole("admin"),
   async (req, res) => {
     try {
       if (!req.user.restaurantId) {
         return res.status(400).json({
-          message: "User is not linked to a restaurant",
+          message:
+            "User is not linked to a restaurant",
         });
       }
 
       const tables = await Table.find({
         restaurantId: req.user.restaurantId,
-        status: { $ne: "Inactive" },
+        status: {
+          $ne: "Inactive",
+        },
       }).sort({
         tableNumber: 1,
       });
 
-      res.json({
+      return res.json({
         tables,
       });
     } catch (error) {
@@ -88,7 +112,7 @@ router.get(
         error
       );
 
-      res.status(500).json({
+      return res.status(500).json({
         message: "Failed to fetch tables",
       });
     }
@@ -97,16 +121,20 @@ router.get(
 
 
 /*
-  CREATE TABLE
-  ADMIN ONLY
+=========================================================
+CREATE TABLE
+ADMIN ONLY
+=========================================================
 */
+
 router.post(
   "/",
-  authMiddleware,
   requireRole("admin"),
   async (req, res) => {
     try {
-      const { tableNumber } = req.body;
+      const {
+        tableNumber,
+      } = req.body;
 
       if (
         tableNumber === undefined ||
@@ -114,14 +142,18 @@ router.post(
         tableNumber === ""
       ) {
         return res.status(400).json({
-          message: "Table number is required",
+          message:
+            "Table number is required",
         });
       }
 
-      const parsedTableNumber = Number(tableNumber);
+      const parsedTableNumber =
+        Number(tableNumber);
 
       if (
-        !Number.isInteger(parsedTableNumber) ||
+        !Number.isInteger(
+          parsedTableNumber
+        ) ||
         parsedTableNumber < 1
       ) {
         return res.status(400).json({
@@ -137,12 +169,15 @@ router.post(
         });
       }
 
-      const restaurantId = req.user.restaurantId;
+      const restaurantId =
+        req.user.restaurantId;
 
-      const existingTable = await Table.findOne({
-        restaurantId,
-        tableNumber: parsedTableNumber,
-      });
+      const existingTable =
+        await Table.findOne({
+          restaurantId,
+          tableNumber:
+            parsedTableNumber,
+        });
 
       if (existingTable) {
         return res.status(400).json({
@@ -151,17 +186,21 @@ router.post(
         });
       }
 
-      const tableId = `table-${crypto.randomUUID()}`;
+      const tableId =
+        `table-${crypto.randomUUID()}`;
 
-      const table = await Table.create({
-        restaurantId,
-        tableNumber: parsedTableNumber,
-        tableId,
-        status: "Available",
-      });
+      const table =
+        await Table.create({
+          restaurantId,
+          tableNumber:
+            parsedTableNumber,
+          tableId,
+          status: "Available",
+        });
 
-      res.status(201).json({
-        message: "Table created successfully",
+      return res.status(201).json({
+        message:
+          "Table created successfully",
         table,
       });
     } catch (error) {
@@ -177,8 +216,9 @@ router.post(
         });
       }
 
-      res.status(500).json({
-        message: "Failed to create table",
+      return res.status(500).json({
+        message:
+          "Failed to create table",
         error: error.message,
       });
     }
@@ -187,16 +227,20 @@ router.post(
 
 
 /*
-  UPDATE TABLE STATUS
-  ADMIN ONLY
+=========================================================
+UPDATE TABLE STATUS
+ADMIN ONLY
+=========================================================
 */
+
 router.put(
   "/:id/status",
-  authMiddleware,
   requireRole("admin"),
   async (req, res) => {
     try {
-      const { status } = req.body;
+      const {
+        status,
+      } = req.body;
 
       if (!req.user.restaurantId) {
         return res.status(400).json({
@@ -205,28 +249,32 @@ router.put(
         });
       }
 
-      const table = await Table.findOneAndUpdate(
-        {
-          _id: req.params.id,
-          restaurantId: req.user.restaurantId,
-        },
-        {
-          status,
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+      const table =
+        await Table.findOneAndUpdate(
+          {
+            _id: req.params.id,
+            restaurantId:
+              req.user.restaurantId,
+          },
+          {
+            status,
+          },
+          {
+            new: true,
+            runValidators: true,
+          }
+        );
 
       if (!table) {
         return res.status(404).json({
-          message: "Table not found",
+          message:
+            "Table not found",
         });
       }
 
-      res.json({
-        message: "Table status updated",
+      return res.json({
+        message:
+          "Table status updated",
         table,
       });
     } catch (error) {
@@ -235,8 +283,9 @@ router.put(
         error
       );
 
-      res.status(500).json({
-        message: "Failed to update table status",
+      return res.status(500).json({
+        message:
+          "Failed to update table status",
         error: error.message,
       });
     }
@@ -245,17 +294,22 @@ router.put(
 
 
 /*
-  REMOVE TABLE
-  ADMIN ONLY
+=========================================================
+REMOVE TABLE
+ADMIN ONLY
 
-  Soft delete:
-  We mark the table as Inactive instead of
-  physically deleting it.
+Soft delete:
+Mark table as Inactive instead of
+physically deleting it.
+=========================================================
 */
-console.log("🔥 DELETE TABLE ROUTE REGISTERED");
+
+console.log(
+  "🔥 DELETE TABLE ROUTE REGISTERED"
+);
+
 router.delete(
   "/:id",
-  authMiddleware,
   requireRole("admin"),
   async (req, res) => {
     console.log(
@@ -271,28 +325,32 @@ router.delete(
         });
       }
 
-      const table = await Table.findOneAndUpdate(
-        {
-          _id: req.params.id,
-          restaurantId: req.user.restaurantId,
-        },
-        {
-          status: "Inactive",
-        },
-        {
-          new: true,
-          runValidators: true,
-        }
-      );
+      const table =
+        await Table.findOneAndUpdate(
+          {
+            _id: req.params.id,
+            restaurantId:
+              req.user.restaurantId,
+          },
+          {
+            status: "Inactive",
+          },
+          {
+            new: true,
+            runValidators: true,
+          }
+        );
 
       if (!table) {
         return res.status(404).json({
-          message: "Table not found",
+          message:
+            "Table not found",
         });
       }
 
       return res.json({
-        message: "Table removed successfully",
+        message:
+          "Table removed successfully",
         table,
       });
     } catch (error) {
@@ -302,11 +360,11 @@ router.delete(
       );
 
       return res.status(500).json({
-        message: "Failed to remove table",
+        message:
+          "Failed to remove table",
       });
     }
   }
 );
-
 
 export default router;
