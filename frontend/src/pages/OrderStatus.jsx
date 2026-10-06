@@ -19,7 +19,8 @@ function OrderStatus() {
   const navigate = useNavigate();
 
   const API_URL =
-    import.meta.env.VITE_API_URL;
+    import.meta.env.VITE_API_URL ||
+    "http://localhost:3000";
 
   // =========================
   // LOAD ORDER + SESSION
@@ -521,24 +522,6 @@ function OrderStatus() {
           color: "#9a7300",
         };
 
-      case "Preparing":
-        return {
-          background: "#eaf4ff",
-          color: "#2774c6",
-        };
-
-      case "Ready":
-        return {
-          background: "#e8f8ed",
-          color: "#218838",
-        };
-
-      case "Served":
-        return {
-          background: "#e8f8ed",
-          color: "#218838",
-        };
-
       default:
         return {
           background: "#f3f3f3",
@@ -827,7 +810,11 @@ function OrderStatus() {
                         "nowrap",
                     }}
                   >
-                    {currentOrder.status}
+                    {currentOrder.status === "NEW"
+                          ? "Order Received"
+                          : currentOrder.status === "ACCEPTED"
+                          ? "Order Accepted"
+                          : currentOrder.status}
                   </div>
                 </div>
 

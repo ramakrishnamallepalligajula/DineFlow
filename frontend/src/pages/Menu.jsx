@@ -5,8 +5,9 @@ import FoodCard from "../components/FoodCard";
 import CategoryTabs from "../components/CategoryTabs";
 import Cart from "../components/Cart";
 import { useCart } from "../context/useCart";
-
+import FloatingCart from "../components/FloatingCart";
 import "./Menu.css";
+
 
 const API_URL =
   import.meta.env.VITE_API_URL ||
@@ -32,6 +33,8 @@ function Menu() {
   const { tableId } = useParams();
 
   const { addToCart } = useCart();
+  const [restaurantName, setRestaurantName] =
+  useState("");
 
   /*
   ========================================================
@@ -85,6 +88,11 @@ function Menu() {
             data.table.restaurantId
           );
 
+          setRestaurantName(
+            data.table.restaurantName || "Restaurant"
+          );
+
+
           setTableNumber(
             data.table.tableNumber
           );
@@ -109,6 +117,7 @@ function Menu() {
     if (tableId) {
       loadTable();
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setError("Table ID is missing.");
       setLoading(false);
     }
@@ -368,7 +377,7 @@ function Menu() {
         <header className="menu-header">
           <div>
             <h1>
-              My Restaurant
+              {restaurantName || "Restaurant"}
             </h1>
 
             <p>
@@ -411,7 +420,7 @@ function Menu() {
       <header className="menu-header">
         <div>
           <h1>
-            My Restaurant
+            {restaurantName || "Restaurant"}
           </h1>
 
           <p>
@@ -472,6 +481,7 @@ function Menu() {
       )}
 
       <Cart />
+      <FloatingCart />
 
     </div>
   );

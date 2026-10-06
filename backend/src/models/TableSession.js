@@ -15,19 +15,21 @@ const tableSessionSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Keep table labels as strings so both numeric and custom labels work.
+    // Examples: "1", "10", "AC-1", "VIP-2".
     tableNumber: {
-      type: Number,
+      type: String,
       required: true,
+      trim: true,
     },
 
-    // Customer-facing order number
-    // Example: 1042
+    // Customer-facing order number.
     orderId: {
       type: Number,
       required: true,
     },
 
-    // Unique identifier for this table visit
+    // Unique identifier for this table visit.
     sessionId: {
       type: String,
       required: true,
@@ -35,25 +37,22 @@ const tableSessionSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Number of orders placed during this session
+    // Number of orders placed during this session.
     orderCount: {
       type: Number,
       default: 0,
       min: 0,
     },
+
     billId: {
-  type: mongoose.Schema.Types.ObjectId,
-  ref: "Bill",
-  default: null,
-},
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Bill",
+      default: null,
+    },
 
     status: {
       type: String,
-      enum: [
-        "open",
-        "bill_requested",
-        "closed",
-      ],
+      enum: ["open", "bill_requested", "closed"],
       default: "open",
       index: true,
     },
@@ -63,7 +62,7 @@ const tableSessionSchema = new mongoose.Schema(
   }
 );
 
-// Only one active session per table
+// Only one open session is allowed per table.
 tableSessionSchema.index(
   {
     restaurantId: 1,
@@ -73,8 +72,9 @@ tableSessionSchema.index(
     unique: true,
     partialFilterExpression: {
       status: "open",
-  },
-});
+    },
+  }
+);
 
 const TableSession = mongoose.model(
   "TableSession",

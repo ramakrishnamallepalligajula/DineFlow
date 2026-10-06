@@ -1,1126 +1,10 @@
-/*
+/* eslint-disable react-hooks/purity */
+
+/* eslint-disable react-hooks/immutability */
+
 import { useEffect, useMemo, useState } from "react";
-import "./KitchenDashboard.css";
 
-import socket from "../socket";
-import { apiFetch } from "../services/api";
-import { useAuth } from "../context/AuthContext";
 
-import AdminNavigation from "../components/AdminNavigation";
-
-function KitchenDashboard() {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const [activeFilter, setActiveFilter] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const { user } = useAuth();
-
-  // =========================================================
-  // SOCKET.IO + RESTAURANT ROOM
-  // =========================================================
-
-  useEffect(() => {
-    if (!user?.restaurantId) {
-      console.log("⚠️ Restaurant ID not available yet");
-      return;
-    }
-
-    const restaurantId = String(user.restaurantId);
-
-    const handleConnect = () => {
-      console.log("⚡ Connected to Socket.IO:", socket.id);
-      console.log("🏪 Joining restaurant room:", restaurantId);
-
-      socket.emit("join-restaurant", restaurantId);
-
-      // Recover orders missed while disconnected.
-      // eslint-disable-next-line react-hooks/immutability
-      fetchOrders()
-        .then((fetchedOrders) => {
-          setOrders((currentOrders) => {
-            const orderMap = new Map();
-
-            fetchedOrders.forEach((order) => {
-              orderMap.set(order._id, order);
-            });
-
-            currentOrders.forEach((order) => {
-              if (!orderMap.has(order._id)) {
-                orderMap.set(order._id, order);
-              }
-            });
-
-            return Array.from(orderMap.values()).sort(
-              (a, b) =>
-                new Date(b.createdAt) - new Date(a.createdAt)
-            );
-          });
-
-          console.log("✅ Kitchen orders synchronized");
-        })
-        .catch((error) => {
-          console.error(
-            "❌ Failed to synchronize orders:",
-            error
-          );
-        });
-    };
-
-    const handleNewOrder = (newOrder) => {
-      console.log("⚡ NEW ORDER RECEIVED:", newOrder);
-
-      const orderRestaurantId = String(newOrder.restaurantId);
-
-      if (orderRestaurantId !== restaurantId) {
-        console.log(
-          "🚫 Ignored order from another restaurant"
-        );
-        return;
-      }
-
-      console.log("✅ Order belongs to this restaurant");
-
-      setOrders((currentOrders) => {
-        const alreadyExists = currentOrders.some(
-          (order) => order._id === newOrder._id
-        );
-
-        if (alreadyExists) {
-          console.log(
-            "⚠️ Duplicate order ignored:",
-            newOrder._id
-          );
-          return currentOrders;
-        }
-
-        return [newOrder, ...currentOrders];
-      });
-    };
-
-    const handleOrderStatusUpdated = (updatedOrder) => {
-      console.log(
-        "⚡ ORDER STATUS UPDATED:",
-        updatedOrder
-      );
-
-      const orderRestaurantId = String(
-        updatedOrder.restaurantId
-      );
-
-      if (orderRestaurantId !== restaurantId) {
-        console.log(
-          "🚫 Ignored status update from another restaurant"
-        );
-        return;
-      }
-
-      setOrders((currentOrders) =>
-        currentOrders.map((order) =>
-          order._id === updatedOrder._id
-            ? updatedOrder
-            : order
-        )
-      );
-    };
-
-    socket.on("connect", handleConnect);
-    socket.on("new-order", handleNewOrder);
-    socket.on(
-      "order-status-updated",
-      handleOrderStatusUpdated
-    );
-
-    if (socket.connected) {
-      handleConnect();
-    }
-
-    return () => {
-      socket.off("connect", handleConnect);
-      socket.off("new-order", handleNewOrder);
-      socket.off(
-        "order-status-updated",
-        handleOrderStatusUpdated
-      );
-    };
-  }, [user?.restaurantId]);
-
-  // =========================================================
-  // FETCH ORDERS
-  // =========================================================
-
-  const fetchOrders = async () => {
-    const response = await apiFetch("/api/orders");
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data.message || "Failed to fetch orders"
-      );
-    }
-
-    return data.orders || [];
-  };
-
-  // =========================================================
-  // INITIAL LOADING
-  // =========================================================
-
-  useEffect(() => {
-    if (!user?.restaurantId) {
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadOrders = async () => {
-      try {
-        setLoading(true);
-
-        const fetchedOrders = await fetchOrders();
-
-        if (!cancelled) {
-          setOrders(fetchedOrders);
-        }
-      } catch (error) {
-        console.error(
-          "Failed to fetch orders:",
-          error
-        );
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadOrders();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.restaurantId]);
-
-  // =========================================================
-  // MANUAL REFRESH
-  // =========================================================
-
-  const handleRefresh = async () => {
-    try {
-      setRefreshing(true);
-
-      const fetchedOrders = await fetchOrders();
-
-      setOrders(fetchedOrders);
-    } catch (error) {
-      console.error(
-        "Failed to refresh orders:",
-        error
-      );
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
-  // =========================================================
-  // UPDATE ORDER STATUS
-  // =========================================================
-
-  const updateStatus = async (
-    orderId,
-    newStatus
-  ) => {
-    try {
-      const response = await apiFetch(
-        `/api/orders/${orderId}/status`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            status: newStatus,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message ||
-            "Failed to update status"
-        );
-      }
-
-      setOrders((currentOrders) =>
-        currentOrders.map((order) =>
-          order._id === orderId
-            ? data.order
-            : order
-        )
-      );
-    } catch (error) {
-      console.error(
-        "Status update failed:",
-        error
-      );
-
-      alert(
-        error.message ||
-          "Failed to update order status."
-      );
-    }
-  };
-
-  // =========================================================
-  // STATUS HELPERS
-  // =========================================================
-
-  const getNextStatus = (status) => {
-    switch (status) {
-      case "Order Received":
-        return "Accepted";
-
-      case "Accepted":
-        return "Preparing";
-
-      case "Preparing":
-        return "Ready";
-
-      case "Ready":
-        return "Served";
-
-      default:
-        return null;
-    }
-  };
-
-  const getButtonText = (status) => {
-    switch (status) {
-      case "Order Received":
-        return "Accept Order";
-
-      case "Accepted":
-        return "Start Preparing";
-
-      case "Preparing":
-        return "Mark Ready";
-
-      case "Ready":
-        return "Mark Served";
-
-      default:
-        return null;
-    }
-  };
-
-  const getStatusClass = (status) => {
-    switch (status) {
-      case "Order Received":
-        return "new";
-
-      case "Accepted":
-        return "accepted";
-
-      case "Preparing":
-        return "preparing";
-
-      case "Ready":
-        return "ready";
-
-      case "Served":
-        return "served";
-
-      default:
-        return "";
-    }
-  };
-
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case "Order Received":
-        return "New";
-
-      case "Accepted":
-        return "Accepted";
-
-      case "Preparing":
-        return "Preparing";
-
-      case "Ready":
-        return "Ready";
-
-      case "Served":
-        return "Served";
-
-      default:
-        return status;
-    }
-  };
-
-  // =========================================================
-  // ORDER TIME
-  // =========================================================
-
-  const formatOrderTime = (createdAt) => {
-    if (!createdAt) {
-      return "Just now";
-    }
-
-    const createdTime =
-      new Date(createdAt).getTime();
-
-    // eslint-disable-next-line react-hooks/purity
-    const currentTime = Date.now();
-
-    const difference = Math.max(
-      0,
-      currentTime - createdTime
-    );
-
-    const minutes = Math.floor(
-      difference / 60000
-    );
-
-    if (minutes < 1) {
-      return "Just now";
-    }
-
-    if (minutes === 1) {
-      return "1 min ago";
-    }
-
-    if (minutes < 60) {
-      return `${minutes} mins ago`;
-    }
-
-    const hours = Math.floor(
-      minutes / 60
-    );
-
-    if (hours === 1) {
-      return "1 hour ago";
-    }
-
-    return `${hours} hours ago`;
-  };
-
-  // =========================================================
-  // ORDER COUNTS
-  // =========================================================
-
-  const orderCounts = useMemo(() => {
-    return {
-      all: orders.length,
-
-      new: orders.filter(
-        (order) =>
-          order.status === "Order Received"
-      ).length,
-
-      accepted: orders.filter(
-        (order) =>
-          order.status === "Accepted"
-      ).length,
-
-      preparing: orders.filter(
-        (order) =>
-          order.status === "Preparing"
-      ).length,
-
-      ready: orders.filter(
-        (order) =>
-          order.status === "Ready"
-      ).length,
-
-      served: orders.filter(
-        (order) =>
-          order.status === "Served"
-      ).length,
-    };
-  }, [orders]);
-
-  // =========================================================
-  // ACTIVE ORDERS
-  // =========================================================
-
-  const activeOrdersCount =
-    orderCounts.new +
-    orderCounts.accepted +
-    orderCounts.preparing +
-    orderCounts.ready;
-
-  // =========================================================
-  // FILTER ORDERS
-  // =========================================================
-
-  const filteredOrders = useMemo(() => {
-    let result = [...orders];
-
-    if (activeFilter !== "All") {
-      result = result.filter(
-        (order) =>
-          order.status === activeFilter
-      );
-    }
-
-    if (searchQuery.trim()) {
-      const query =
-        searchQuery
-          .trim()
-          .toLowerCase();
-
-      result = result.filter(
-        (order) =>
-          String(
-            order.orderId || ""
-          )
-            .toLowerCase()
-            .includes(query) ||
-          String(
-            order.tableNumber || ""
-          )
-            .toLowerCase()
-            .includes(query)
-      );
-    }
-
-    return result;
-  }, [
-    orders,
-    activeFilter,
-    searchQuery,
-  ]);
-
-  // =========================================================
-  // LOADING
-  // =========================================================
-
-  if (loading) {
-    return (
-      <div className="kitchen-page">
-        <AdminNavigation />
-
-        <main className="kitchen-main">
-          <div className="kitchen-loading">
-            <div className="loading-spinner"></div>
-
-            <h2>Loading kitchen</h2>
-
-            <p>
-              Connecting to your live order board...
-            </p>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // =========================================================
-  // DASHBOARD
-  // =========================================================
-
-  return (
-    <div className="kitchen-page">
-      <AdminNavigation />
-
-      <main className="kitchen-main">
-
-        {/* =================================================
-            HEADER
-        ================================================= 
-
-        <header className="kitchen-header">
-
-          <div className="kitchen-header-copy">
-            <div className="kitchen-live">
-              <span className="kitchen-live-dot"></span>
-              LIVE KITCHEN
-            </div>
-
-            <h1>Kitchen Order Board</h1>
-
-            <p>
-              Keep every order moving from
-              received to served.
-            </p>
-          </div>
-
-          <div className="kitchen-header-actions">
-
-            <div className="kitchen-orders-indicator">
-              <span>Active orders</span>
-              <strong>
-                {activeOrdersCount}
-              </strong>
-            </div>
-
-            <button
-              className="kitchen-refresh"
-              onClick={handleRefresh}
-              disabled={refreshing}
-            >
-              <span
-                className={
-                  refreshing
-                    ? "refresh-icon spinning"
-                    : "refresh-icon"
-                }
-              >
-                ↻
-              </span>
-
-              {refreshing
-                ? "Refreshing"
-                : "Refresh"}
-            </button>
-
-          </div>
-        </header>
-
-        {/* =================================================
-            STATUS OVERVIEW
-        ================================================= 
-
-        <section className="kitchen-status-overview">
-
-          <button
-            className={`status-overview-card ${
-              activeFilter === "All"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActiveFilter("All")
-            }
-          >
-            <div className="status-overview-top">
-              <span className="status-overview-icon neutral">
-                ◉
-              </span>
-
-              <span className="status-overview-label">
-                All orders
-              </span>
-            </div>
-
-            <strong>
-              {orderCounts.all}
-            </strong>
-
-            <span className="status-overview-description">
-              Today's order queue
-            </span>
-          </button>
-
-          <button
-            className={`status-overview-card ${
-              activeFilter === "Order Received"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActiveFilter(
-                "Order Received"
-              )
-            }
-          >
-            <div className="status-overview-top">
-              <span className="status-overview-icon new">
-                !
-              </span>
-
-              <span className="status-overview-label">
-                New
-              </span>
-            </div>
-
-            <strong>
-              {orderCounts.new}
-            </strong>
-
-            <span className="status-overview-description">
-              Waiting for acceptance
-            </span>
-          </button>
-
-          <button
-            className={`status-overview-card ${
-              activeFilter === "Accepted"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActiveFilter("Accepted")
-            }
-          >
-            <div className="status-overview-top">
-              <span className="status-overview-icon accepted">
-                ✓
-              </span>
-
-              <span className="status-overview-label">
-                Accepted
-              </span>
-            </div>
-
-            <strong>
-              {orderCounts.accepted}
-            </strong>
-
-            <span className="status-overview-description">
-              Ready for preparation
-            </span>
-          </button>
-
-          <button
-            className={`status-overview-card ${
-              activeFilter === "Preparing"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActiveFilter("Preparing")
-            }
-          >
-            <div className="status-overview-top">
-              <span className="status-overview-icon preparing">
-                ●
-              </span>
-
-              <span className="status-overview-label">
-                Preparing
-              </span>
-            </div>
-
-            <strong>
-              {orderCounts.preparing}
-            </strong>
-
-            <span className="status-overview-description">
-              Currently in kitchen
-            </span>
-          </button>
-
-          <button
-            className={`status-overview-card ${
-              activeFilter === "Ready"
-                ? "active"
-                : ""
-            }`}
-            onClick={() =>
-              setActiveFilter("Ready")
-            }
-          >
-            <div className="status-overview-top">
-              <span className="status-overview-icon ready">
-                ✓
-              </span>
-
-              <span className="status-overview-label">
-                Ready
-              </span>
-            </div>
-
-            <strong>
-              {orderCounts.ready}
-            </strong>
-
-            <span className="status-overview-description">
-              Waiting to be served
-            </span>
-          </button>
-
-        </section>
-
-        {/* =================================================
-            TOOLBAR
-        ================================================= 
-
-        <section className="kitchen-toolbar">
-
-          <div className="kitchen-filter-tabs">
-
-            {[
-              {
-                label: "All",
-                value: "All",
-                count: orderCounts.all,
-              },
-              {
-                label: "New",
-                value: "Order Received",
-                count: orderCounts.new,
-              },
-              {
-                label: "Accepted",
-                value: "Accepted",
-                count: orderCounts.accepted,
-              },
-              {
-                label: "Preparing",
-                value: "Preparing",
-                count: orderCounts.preparing,
-              },
-              {
-                label: "Ready",
-                value: "Ready",
-                count: orderCounts.ready,
-              },
-            ].map((filter) => (
-              <button
-                key={filter.value}
-                className={
-                  activeFilter === filter.value
-                    ? "active"
-                    : ""
-                }
-                onClick={() =>
-                  setActiveFilter(
-                    filter.value
-                  )
-                }
-              >
-                {filter.label}
-
-                <span>
-                  {filter.count}
-                </span>
-              </button>
-            ))}
-
-          </div>
-
-          <div className="kitchen-search">
-
-            <span className="search-icon">
-              ⌕
-            </span>
-
-            <input
-              type="text"
-              placeholder="Search order or table..."
-              value={searchQuery}
-              onChange={(event) =>
-                setSearchQuery(
-                  event.target.value
-                )
-              }
-            />
-
-            {searchQuery && (
-              <button
-                className="search-clear"
-                onClick={() =>
-                  setSearchQuery("")
-                }
-              >
-                ×
-              </button>
-            )}
-
-          </div>
-
-        </section>
-
-        {/* =================================================
-            ORDERS HEADER
-        ================================================= 
-
-        <section className="kitchen-orders">
-
-          <div className="kitchen-orders-header">
-
-            <div>
-              <div className="section-eyebrow">
-                ORDER QUEUE
-              </div>
-
-              <h2>Active Orders</h2>
-
-              <p>
-                {filteredOrders.length}{" "}
-                {filteredOrders.length === 1
-                  ? "order"
-                  : "orders"}{" "}
-                currently displayed
-              </p>
-            </div>
-
-            {(activeFilter !== "All" ||
-              searchQuery) && (
-              <button
-                className="clear-filters"
-                onClick={() => {
-                  setActiveFilter("All");
-                  setSearchQuery("");
-                }}
-              >
-                Clear filters
-              </button>
-            )}
-
-          </div>
-
-          {/* =================================================
-              EMPTY
-          ================================================= 
-
-          {filteredOrders.length === 0 ? (
-            <div className="kitchen-empty">
-
-              <div className="kitchen-empty-icon">
-                ✓
-              </div>
-
-              <h3>
-                {searchQuery ||
-                activeFilter !== "All"
-                  ? "No matching orders"
-                  : "Kitchen is clear"}
-              </h3>
-
-              <p>
-                {searchQuery
-                  ? "Try another order number or table."
-                  : activeFilter !== "All"
-                  ? "There are no orders in this status."
-                  : "New customer orders will appear here automatically."}
-              </p>
-
-              {(searchQuery ||
-                activeFilter !== "All") && (
-                <button
-                  onClick={() => {
-                    setSearchQuery("");
-                    setActiveFilter("All");
-                  }}
-                >
-                  View all orders
-                </button>
-              )}
-
-            </div>
-          ) : (
-
-            /* =================================================
-               ORDER GRID
-            ================================================= 
-
-            <div className="kitchen-order-grid">
-
-              {filteredOrders.map((order) => {
-                const nextStatus =
-                  getNextStatus(
-                    order.status
-                  );
-
-                const buttonText =
-                  getButtonText(
-                    order.status
-                  );
-
-                const statusClass =
-                  getStatusClass(
-                    order.status
-                  );
-
-                return (
-                  <article
-                    className={`kitchen-order-card ${statusClass}`}
-                    key={order._id}
-                  >
-
-                    {/* CARD HEADER 
-
-                    <div className="order-card-header">
-
-                      <div>
-                        <span className="order-card-label">
-                          ORDER
-                        </span>
-
-                        <h3>
-                          #{order.orderId}
-                        </h3>
-                      </div>
-
-                      <span
-                        className={`order-status-badge ${statusClass}`}
-                      >
-                        <span></span>
-                        {getStatusLabel(
-                          order.status
-                        )}
-                      </span>
-
-                    </div>
-
-                    {/* TABLE + TIME 
-
-                    <div className="order-card-meta">
-
-                      <div className="order-table">
-
-                        <div className="order-table-icon">
-                          T
-                        </div>
-
-                        <div>
-                          <span>TABLE</span>
-
-                          <strong>
-                            {order.tableNumber}
-                          </strong>
-                        </div>
-
-                      </div>
-
-                      <div className="order-created">
-                        {formatOrderTime(
-                          order.createdAt
-                        )}
-                      </div>
-
-                    </div>
-
-                    {/* ITEMS 
-
-                    <div className="order-items-section">
-
-                      <div className="order-items-header">
-                        <span>Items</span>
-
-                        <span>
-                          {order.items.length}{" "}
-                          {order.items.length ===
-                          1
-                            ? "item"
-                            : "items"}
-                        </span>
-                      </div>
-
-                      <div className="order-items-list">
-
-                        {order.items.map(
-                          (item, index) => (
-                            <div
-                              className="kitchen-order-item"
-                              key={
-                                item.id ||
-                                `${item.name}-${index}`
-                              }
-                            >
-
-                              <div className="item-qty">
-                                {item.quantity}
-                              </div>
-
-                              <div className="item-info">
-                                <strong>
-                                  {item.name}
-                                </strong>
-
-                                <span>
-                                  ₹{item.price} each
-                                </span>
-                              </div>
-
-                              <strong className="item-price">
-                                ₹
-                                {item.price *
-                                  item.quantity}
-                              </strong>
-
-                            </div>
-                          )
-                        )}
-
-                      </div>
-
-                    </div>
-
-                    {/* TOTAL 
-
-                    <div className="order-total-row">
-
-                      <span>
-                        Order total
-                      </span>
-
-                      <strong>
-                        ₹{order.totalPrice}
-                      </strong>
-
-                    </div>
-
-                    {/* ACTION 
-
-                    {nextStatus ? (
-                      <button
-                        className={`kitchen-action ${statusClass}`}
-                        onClick={() =>
-                          updateStatus(
-                            order._id,
-                            nextStatus
-                          )
-                        }
-                      >
-
-                        <span className="action-icon">
-                          {order.status ===
-                            "Order Received" &&
-                            "✓"}
-
-                          {order.status ===
-                            "Accepted" &&
-                            "▶"}
-
-                          {order.status ===
-                            "Preparing" &&
-                            "✓"}
-
-                          {order.status ===
-                            "Ready" &&
-                            "✓"}
-                        </span>
-
-                        <span>
-                          {buttonText}
-                        </span>
-
-                        <span className="action-arrow">
-                          →
-                        </span>
-
-                      </button>
-                    ) : (
-                      <div className="order-completed">
-                        <span>✓</span>
-                        Order completed
-                      </div>
-                    )}
-
-                  </article>
-                );
-              })}
-
-            </div>
-          )}
-
-        </section>
-
-      </main>
-    </div>
-  );
-}
-
-export default KitchenDashboard; */
-import { useEffect, useMemo, useState } from "react";
 
 import "./KitchenDashboard.css";
 
@@ -1132,2193 +16,2443 @@ import { apiFetch } from "../services/api";
 
 import { useAuth } from "../context/AuthContext";
 
-
-
 import AdminNavigation from "../components/AdminNavigation";
 
 
 
 function KitchenDashboard() {
 
-  const [orders, setOrders] = useState([]);
+ const [orders, setOrders] = useState([]);
 
-  const [loading, setLoading] = useState(true);
+ const [loading, setLoading] = useState(true);
 
-  const [refreshing, setRefreshing] = useState(false);
+ const [refreshing, setRefreshing] = useState(false);
 
 
 
-  const [activeFilter, setActiveFilter] = useState("All");
+ const [activeFilter, setActiveFilter] = useState("All");
 
-  const [searchQuery, setSearchQuery] = useState("");
+ const [searchQuery, setSearchQuery] = useState("");
 
 
 
-  const { user } = useAuth();
+ const { user } = useAuth();
 
 
 
-  // =========================================================
+ // =========================================================
 
-  // SOCKET.IO + RESTAURANT ROOM
+ // SOCKET.IO + RESTAURANT ROOM
 
-  // =========================================================
+ // =========================================================
 
 
 
-  useEffect(() => {
+ useEffect(() => {
 
-    if (!user?.restaurantId) {
+   if (!user?.restaurantId) {
 
-      console.log("⚠️ Restaurant ID not available yet");
+     console.log(
 
-      return;
+       "⚠️ Restaurant ID not available yet"
 
-    }
+     );
 
+     return;
 
+   }
 
-    const restaurantId = String(user.restaurantId);
 
 
+   const restaurantId = String(
 
-    const handleConnect = () => {
+     user.restaurantId
 
-      console.log("⚡ Connected to Socket.IO:", socket.id);
+   );
 
-      console.log("🏪 Joining restaurant room:", restaurantId);
 
 
+   const handleConnect = () => {
 
-      socket.emit("join-restaurant", restaurantId);
+     console.log(
 
+       "⚡ Connected to Socket.IO:",
 
+       socket.id
 
-      // Recover orders missed while disconnected.
+     );
 
-      // eslint-disable-next-line react-hooks/immutability
-      fetchOrders()
 
-        .then((fetchedOrders) => {
 
-          setOrders((currentOrders) => {
+     console.log(
 
-            const orderMap = new Map();
+       "🏪 Joining restaurant room:",
 
+       restaurantId
 
+     );
 
-            fetchedOrders.forEach((order) => {
 
-              orderMap.set(order._id, order);
 
-            });
+     socket.emit(
 
+       "join-restaurant",
 
+       restaurantId
 
-            currentOrders.forEach((order) => {
+     );
 
-              if (!orderMap.has(order._id)) {
 
-                orderMap.set(order._id, order);
 
-              }
+     // Recover orders missed while disconnected.
 
-            });
+     fetchOrders()
 
+       .then((fetchedOrders) => {
 
+         setOrders((currentOrders) => {
 
-            return Array.from(orderMap.values()).sort(
+           const orderMap = new Map();
 
-              (a, b) =>
 
-                new Date(b.createdAt) - new Date(a.createdAt)
 
-            );
+           fetchedOrders.forEach((order) => {
 
-          });
+             orderMap.set(order._id, order);
 
+           });
 
 
-          console.log("✅ Kitchen orders synchronized");
 
-        })
+           currentOrders.forEach((order) => {
 
-        .catch((error) => {
+             if (!orderMap.has(order._id)) {
 
-          console.error(
+               orderMap.set(order._id, order);
 
-            "❌ Failed to synchronize orders:",
+             }
 
-            error
+           });
 
-          );
 
-        });
 
-    };
+           return Array.from(
 
+             orderMap.values()
 
+           ).sort(
 
-    const handleNewOrder = (newOrder) => {
+             (a, b) =>
 
-      console.log("⚡ NEW ORDER RECEIVED:", newOrder);
+               new Date(b.createdAt) -
 
+               new Date(a.createdAt)
 
+           );
 
-      const orderRestaurantId = String(newOrder.restaurantId);
+         });
 
 
 
-      if (orderRestaurantId !== restaurantId) {
+         console.log(
 
-        console.log(
+           "✅ Kitchen orders synchronized"
 
-          "🚫 Ignored order from another restaurant"
+         );
 
-        );
+       })
 
-        return;
+       .catch((error) => {
 
-      }
+         console.error(
 
+           "❌ Failed to synchronize orders:",
 
+           error
 
-      console.log("✅ Order belongs to this restaurant");
+         );
 
+       });
 
+   };
 
-      setOrders((currentOrders) => {
 
-        const alreadyExists = currentOrders.some(
 
-          (order) => order._id === newOrder._id
+   // =========================================================
 
-        );
+   // NEW ORDER
 
+   // =========================================================
 
 
-        if (alreadyExists) {
 
-          console.log(
+   const handleNewOrder = (newOrder) => {
 
-            "⚠️ Duplicate order ignored:",
+     console.log(
 
-            newOrder._id
+       "⚡ NEW ORDER RECEIVED:",
 
-          );
+       newOrder
 
-          return currentOrders;
+     );
 
-        }
 
 
+     const orderRestaurantId = String(
 
-        return [newOrder, ...currentOrders];
+       newOrder.restaurantId
 
-      });
+     );
 
-    };
 
 
+     if (
 
-    const handleOrderStatusUpdated = (updatedOrder) => {
+       orderRestaurantId !== restaurantId
 
-      console.log(
+     ) {
 
-        "⚡ ORDER STATUS UPDATED:",
+       console.log(
 
-        updatedOrder
+         "🚫 Ignored order from another restaurant"
 
-      );
+       );
 
+       return;
 
+     }
 
-      const orderRestaurantId = String(
 
-        updatedOrder.restaurantId
 
-      );
+     console.log(
 
+       "✅ Order belongs to this restaurant"
 
+     );
 
-      if (orderRestaurantId !== restaurantId) {
 
-        console.log(
 
-          "🚫 Ignored status update from another restaurant"
+     setOrders((currentOrders) => {
 
-        );
+       const alreadyExists =
 
-        return;
+         currentOrders.some(
 
-      }
+           (order) =>
 
+             order._id === newOrder._id
 
+         );
 
-      setOrders((currentOrders) =>
 
-        currentOrders.map((order) =>
 
-          order._id === updatedOrder._id
+       if (alreadyExists) {
 
-            ? updatedOrder
+         console.log(
 
-            : order
+           "⚠️ Duplicate order ignored:",
 
-        )
+           newOrder._id
 
-      );
+         );
 
-    };
 
 
+         return currentOrders;
 
-    socket.on("connect", handleConnect);
+       }
 
-    socket.on("new-order", handleNewOrder);
 
-    socket.on(
 
-      "order-status-updated",
+       return [
 
-      handleOrderStatusUpdated
+         newOrder,
 
-    );
+         ...currentOrders,
 
+       ];
 
+     });
 
-    if (socket.connected) {
+   };
 
-      handleConnect();
 
-    }
 
+   // =========================================================
 
+   // ORDER STATUS UPDATED
 
-    return () => {
+   // =========================================================
 
-      socket.off("connect", handleConnect);
 
-      socket.off("new-order", handleNewOrder);
 
-      socket.off(
+   const handleOrderStatusUpdated = (
 
-        "order-status-updated",
+     updatedOrder
 
-        handleOrderStatusUpdated
+   ) => {
 
-      );
+     console.log(
 
-    };
+       "⚡ ORDER STATUS UPDATED:",
 
-  }, [user?.restaurantId]);
+       updatedOrder
 
+     );
 
 
-  // =========================================================
 
-  // FETCH ORDERS
+     const orderRestaurantId = String(
 
-  // =========================================================
+       updatedOrder.restaurantId
 
+     );
 
 
-  const fetchOrders = async () => {
 
-    const response = await apiFetch("/api/orders");
+     if (
 
+       orderRestaurantId !== restaurantId
 
+     ) {
 
-    const data = await response.json();
+       return;
 
+     }
 
 
-    if (!response.ok) {
 
-      throw new Error(
+     setOrders((currentOrders) =>
 
-        data.message || "Failed to fetch orders"
+       currentOrders.map((order) =>
 
-      );
+         order._id === updatedOrder._id
 
-    }
+           ? updatedOrder
 
+           : order
 
+       )
 
-    return data.orders || [];
+     );
 
-  };
+   };
 
 
 
-  // =========================================================
+   socket.on(
 
-  // INITIAL LOADING
+     "connect",
 
-  // =========================================================
+     handleConnect
 
+   );
 
 
-  useEffect(() => {
 
-    if (!user?.restaurantId) {
+   socket.on(
 
-      return;
+     "new-order",
 
-    }
+     handleNewOrder
 
+   );
 
 
-    let cancelled = false;
 
+   socket.on(
 
+     "order-status-updated",
 
-    const loadOrders = async () => {
+     handleOrderStatusUpdated
 
-      try {
+   );
 
-        setLoading(true);
 
 
+   if (socket.connected) {
 
-        const fetchedOrders = await fetchOrders();
+     handleConnect();
 
+   }
 
 
-        if (!cancelled) {
 
-          setOrders(fetchedOrders);
+   return () => {
 
-        }
+     socket.off(
 
-      } catch (error) {
+       "connect",
 
-        console.error(
+       handleConnect
 
-          "Failed to fetch orders:",
+     );
 
-          error
 
-        );
 
-      } finally {
+     socket.off(
 
-        if (!cancelled) {
+       "new-order",
 
-          setLoading(false);
+       handleNewOrder
 
-        }
+     );
 
-      }
 
-    };
 
+     socket.off(
 
+       "order-status-updated",
 
-    loadOrders();
+       handleOrderStatusUpdated
 
+     );
 
+   };
 
-    return () => {
+ }, [user?.restaurantId]);
 
-      cancelled = true;
 
-    };
 
-  }, [user?.restaurantId]);
+ // =========================================================
 
+ // FETCH ORDERS
 
+ // =========================================================
 
-  // =========================================================
 
-  // MANUAL REFRESH
 
-  // =========================================================
+ const fetchOrders = async () => {
 
+   const response = await apiFetch(
 
+     "/api/orders"
 
-  const handleRefresh = async () => {
+   );
 
-    try {
 
-      setRefreshing(true);
 
+   const data = await response.json();
 
 
-      const fetchedOrders = await fetchOrders();
 
+   if (!response.ok) {
 
+     throw new Error(
 
-      setOrders(fetchedOrders);
+       data.message ||
 
-    } catch (error) {
+         "Failed to fetch orders"
 
-      console.error(
+     );
 
-        "Failed to refresh orders:",
+   }
 
-        error
 
-      );
 
-    } finally {
+   return data.orders || [];
 
-      setRefreshing(false);
+ };
 
-    }
 
-  };
 
+ // =========================================================
 
+ // INITIAL LOADING
 
-  // =========================================================
+ // =========================================================
 
-  // UPDATE ORDER STATUS
 
-  // =========================================================
 
+ useEffect(() => {
 
+   if (!user?.restaurantId) {
 
-  const updateStatus = async (
+     return;
 
-    orderId,
+   }
 
-    newStatus
 
-  ) => {
 
-    try {
+   let cancelled = false;
 
-      const response = await apiFetch(
 
-        `/api/orders/${orderId}/status`,
 
-        {
+   const loadOrders = async () => {
 
-          method: "PUT",
+     try {
 
-          headers: {
+       setLoading(true);
 
-            "Content-Type": "application/json",
 
-          },
 
-          body: JSON.stringify({
+       const fetchedOrders =
 
-            status: newStatus,
+         await fetchOrders();
 
-          }),
 
-        }
 
-      );
+       if (!cancelled) {
 
+         setOrders(fetchedOrders);
 
+       }
 
-      const data = await response.json();
+     } catch (error) {
 
+       console.error(
 
+         "Failed to fetch orders:",
 
-      if (!response.ok) {
+         error
 
-        throw new Error(
+       );
 
-          data.message ||
+     } finally {
 
-            "Failed to update status"
+       if (!cancelled) {
 
-        );
+         setLoading(false);
 
-      }
+       }
 
+     }
 
+   };
 
-      setOrders((currentOrders) =>
 
-        currentOrders.map((order) =>
 
-          order._id === orderId
+   loadOrders();
 
-            ? data.order
 
-            : order
 
-        )
+   return () => {
 
-      );
+     cancelled = true;
 
-    } catch (error) {
+   };
 
-      console.error(
+ }, [user?.restaurantId]);
 
-        "Status update failed:",
 
-        error
 
-      );
+ // =========================================================
 
+ // MANUAL REFRESH
 
+ // =========================================================
 
-      alert(
 
-        error.message ||
 
-          "Failed to update order status."
+ const handleRefresh = async () => {
 
-      );
+   try {
 
-    }
+     setRefreshing(true);
 
-  };
 
 
+     const fetchedOrders =
 
-  // =========================================================
+       await fetchOrders();
 
-  // STATUS HELPERS
 
-  // =========================================================
 
+     setOrders(fetchedOrders);
 
+   } catch (error) {
 
-  const getNextStatus = (status) => {
+     console.error(
 
-    switch (status) {
+       "Failed to refresh orders:",
 
-      case "Order Received":
+       error
 
-        return "Accepted";
+     );
 
+   } finally {
 
+     setRefreshing(false);
 
-      case "Accepted":
+   }
 
-        return "Preparing";
+ };
 
 
 
-      case "Preparing":
+ // =========================================================
 
-        return "Ready";
+ // UPDATE ORDER STATUS
 
+ // NEW → ACCEPTED
 
+ // =========================================================
 
-      case "Ready":
 
-        return "Served";
 
+ const updateStatus = async (
 
+   orderId,
 
-      default:
+   newStatus
 
-        return null;
+ ) => {
 
-    }
+   try {
 
-  };
+     const response = await apiFetch(
 
+       `/api/orders/${orderId}/status`,
 
+       {
 
-  const getButtonText = (status) => {
+         method: "PUT",
 
-    switch (status) {
 
-      case "Order Received":
 
-        return "Accept Order";
+         headers: {
 
+           "Content-Type":
 
+             "application/json",
 
-      case "Accepted":
+         },
 
-        return "Start Preparing";
 
 
+         body: JSON.stringify({
 
-      case "Preparing":
+           status: newStatus,
 
-        return "Mark Ready";
+         }),
 
+       }
 
+     );
 
-      case "Ready":
 
-        return "Mark Served";
 
+     const data =
 
+       await response.json();
 
-      default:
 
-        return null;
 
-    }
+     if (!response.ok) {
 
-  };
+       throw new Error(
 
+         data.message ||
 
+           "Failed to update order status"
 
-  const getStatusClass = (status) => {
+       );
 
-    switch (status) {
+     }
 
-      case "Order Received":
 
-        return "new";
 
+     setOrders((currentOrders) =>
 
+       currentOrders.map((order) =>
 
-      case "Accepted":
+         order._id === orderId
 
-        return "accepted";
+           ? data.order
 
+           : order
 
+       )
 
-      case "Preparing":
+     );
 
-        return "preparing";
+   } catch (error) {
 
+     console.error(
 
+       "Status update failed:",
 
-      case "Ready":
+       error
 
-        return "ready";
+     );
 
 
 
-      case "Served":
+     alert(
 
-        return "served";
+       error.message ||
 
+         "Failed to update order status."
 
+     );
 
-      default:
+   }
 
-        return "";
+ };
 
-    }
 
-  };
 
+ // =========================================================
 
+ // STATUS HELPERS
 
-  const getStatusLabel = (status) => {
+ // =========================================================
 
-    switch (status) {
 
-      case "Order Received":
 
-        return "New";
+ const getNextStatus = (status) => {
 
+   if (status === "Order Received") {
 
+     return "Accepted";
 
-      case "Accepted":
+   }
 
-        return "Accepted";
 
 
+   return null;
 
-      case "Preparing":
+ };
 
-        return "Preparing";
 
 
+ const getButtonText = (status) => {
 
-      case "Ready":
+   if (status === "Order Received") {
 
-        return "Ready";
+     return "Accept Order";
 
+   }
 
 
-      case "Served":
 
-        return "Served";
+   return null;
 
+ };
 
 
-      default:
 
-        return status;
+ const getStatusClass = (status) => {
 
-    }
+   switch (status) {
 
-  };
+     case "Order Received":
 
+       return "new";
 
 
-  // =========================================================
 
-  // ORDER TIME
+     case "Accepted":
 
-  // =========================================================
+       return "accepted";
 
 
 
-  const formatOrderTime = (createdAt) => {
+     default:
 
-    if (!createdAt) {
+       return "";
 
-      return "Just now";
+   }
 
-    }
+ };
 
 
 
-    const createdTime =
+ const getStatusLabel = (status) => {
 
-      new Date(createdAt).getTime();
+   switch (status) {
 
+     case "Order Received":
 
+       return "New";
 
 
-    // eslint-disable-next-line react-hooks/purity
-    const currentTime = Date.now();
 
+     case "Accepted":
 
+       return "Accepted";
 
-    const difference = Math.max(
 
-      0,
 
-      currentTime - createdTime
+     default:
 
-    );
+       return status;
 
+   }
 
+ };
 
-    const minutes = Math.floor(
 
-      difference / 60000
 
-    );
+ // =========================================================
 
+ // ORDER TIME
 
+ // =========================================================
 
-    if (minutes < 1) {
 
-      return "Just now";
 
-    }
+ const formatOrderTime = (createdAt) => {
 
+   if (!createdAt) {
 
+     return "Just now";
 
-    if (minutes === 1) {
+   }
 
-      return "1 min ago";
 
-    }
 
+   const createdTime =
 
+     new Date(createdAt).getTime();
 
-    if (minutes < 60) {
 
-      return `${minutes} mins ago`;
 
-    }
+   const currentTime = Date.now();
 
 
 
-    const hours = Math.floor(
+   const difference = Math.max(
 
-      minutes / 60
+     0,
 
-    );
+     currentTime - createdTime
 
+   );
 
 
-    if (hours === 1) {
 
-      return "1 hour ago";
+   const minutes = Math.floor(
 
-    }
+     difference / 60000
 
+   );
 
 
-    return `${hours} hours ago`;
 
-  };
+   if (minutes < 1) {
 
+     return "Just now";
 
+   }
 
-  // =========================================================
 
-  // ORDER COUNTS
 
-  // =========================================================
+   if (minutes === 1) {
 
+     return "1 min ago";
 
+   }
 
-  const orderCounts = useMemo(() => {
 
-    return {
 
-      all: orders.length,
+   if (minutes < 60) {
 
+     return `${minutes} mins ago`;
 
+   }
 
-      new: orders.filter(
 
-        (order) =>
 
-          order.status === "Order Received"
+   const hours = Math.floor(
 
-      ).length,
+     minutes / 60
 
+   );
 
 
-      accepted: orders.filter(
 
-        (order) =>
+   if (hours === 1) {
 
-          order.status === "Accepted"
+     return "1 hour ago";
 
-      ).length,
+   }
 
 
 
-      preparing: orders.filter(
+   return `${hours} hours ago`;
 
-        (order) =>
+ };
 
-          order.status === "Preparing"
 
-      ).length,
 
+ // =========================================================
 
+ // ORDER COUNTS
 
-      ready: orders.filter(
+ // =========================================================
 
-        (order) =>
 
-          order.status === "Ready"
 
-      ).length,
+ const orderCounts = useMemo(() => {
 
+   return {
 
+     all: orders.length,
 
-      served: orders.filter(
 
-        (order) =>
 
-          order.status === "Served"
+     new: orders.filter(
 
-      ).length,
+       (order) =>
 
-    };
+         order.status === "Order Received"
 
-  }, [orders]);
+     ).length,
 
 
 
-  // =========================================================
+     accepted: orders.filter(
 
-  // ACTIVE ORDERS
+       (order) =>
 
-  // =========================================================
+         order.status === "Accepted"
 
+     ).length,
 
+   };
 
-  const activeOrdersCount =
+ }, [orders]);
 
-    orderCounts.new +
 
-    orderCounts.accepted +
 
-    orderCounts.preparing +
+ // =========================================================
 
-    orderCounts.ready;
+ // ACTIVE ORDERS
 
+ // =========================================================
 
 
-  // =========================================================
 
-  // FILTER ORDERS
+ const activeOrdersCount =
 
-  // =========================================================
+   orderCounts.new +
 
+   orderCounts.accepted;
 
 
-  const filteredOrders = useMemo(() => {
 
-    let result = [...orders];
+ // =========================================================
 
+ // FILTER ORDERS
 
+ // =========================================================
 
-    if (activeFilter !== "All") {
 
-      result = result.filter(
 
-        (order) =>
+ const filteredOrders = useMemo(() => {
 
-          order.status === activeFilter
+   let result = [...orders];
 
-      );
 
-    }
 
+   if (activeFilter !== "All") {
 
+     result = result.filter(
 
-    if (searchQuery.trim()) {
+       (order) =>
 
-      const query =
+         order.status === activeFilter
 
-        searchQuery
+     );
 
-          .trim()
+   }
 
-          .toLowerCase();
 
 
+   if (searchQuery.trim()) {
 
-      result = result.filter(
+     const query =
 
-        (order) =>
+       searchQuery
 
-          String(
+         .trim()
 
-            order.orderId || ""
+         .toLowerCase();
 
-          )
 
-            .toLowerCase()
 
-            .includes(query) ||
+     result = result.filter(
 
-          String(
+       (order) =>
 
-            order.tableNumber || ""
+         String(
 
-          )
+           order.orderId || ""
 
-            .toLowerCase()
+         )
 
-            .includes(query) ||
+           .toLowerCase()
 
-          String(
+           .includes(query) ||
 
-            order.sessionId || ""
+         String(
 
-          )
+           order.tableNumber || ""
 
-            .toLowerCase()
+         )
 
-            .includes(query)
+           .toLowerCase()
 
-      );
+           .includes(query) ||
 
-    }
+         String(
 
+           order.sessionId || ""
 
+         )
 
-    return result;
+           .toLowerCase()
 
-  }, [
+           .includes(query)
 
-    orders,
+     );
 
-    activeFilter,
+   }
 
-    searchQuery,
 
-  ]);
 
+   return result;
 
+ }, [
 
-  // =========================================================
+   orders,
 
-  // GROUP ORDERS BY TABLE / DINING SESSION
-  // =========================================================
+   activeFilter,
 
-  const groupedOrders = useMemo(() => {
+   searchQuery,
 
-    const groups = new Map();
+ ]);
 
 
 
-    filteredOrders.forEach((order) => {
+ // =========================================================
 
-      // sessionId is the authoritative grouping key.
-      // The table fallback keeps older orders visible.
-      const groupKey =
+ // GROUP ORDERS BY TABLE / DINING SESSION
 
-        order.sessionId
+ // =========================================================
 
-          ? `session:${order.sessionId}`
 
-          : `table:${order.tableNumber || "unknown"}`;
 
+ const groupedOrders = useMemo(() => {
 
+   const groups = new Map();
 
-      if (!groups.has(groupKey)) {
 
-        groups.set(groupKey, {
 
-          key: groupKey,
+   filteredOrders.forEach((order) => {
 
-          sessionId: order.sessionId || null,
+     const groupKey = order.sessionId
 
-          tableNumber: order.tableNumber || "-",
+       ? `session:${order.sessionId}`
 
-          orders: [],
+       : `table:${
 
-        });
+           order.tableNumber ||
 
-      }
+           "unknown"
 
+         }`;
 
 
-      groups.get(groupKey).orders.push(order);
 
-    });
+     if (!groups.has(groupKey)) {
 
+       groups.set(groupKey, {
 
+         key: groupKey,
 
-    return Array.from(groups.values())
+         sessionId:
 
-      .map((group) => ({
+           order.sessionId || null,
 
-        ...group,
+         tableNumber:
 
-        orders: [...group.orders].sort(
+           order.tableNumber || "-",
 
-          (a, b) =>
+         orders: [],
 
-            new Date(a.createdAt || 0) -
+       });
 
-            new Date(b.createdAt || 0)
+     }
 
-        ),
 
-      }))
 
-      .sort((a, b) => {
+     groups
 
-        const aLatest = Math.max(
+       .get(groupKey)
 
-          ...a.orders.map((order) =>
+       .orders.push(order);
 
-            new Date(order.createdAt || 0).getTime()
+   });
 
-          )
 
-        );
 
-        const bLatest = Math.max(
+   return Array.from(
 
-          ...b.orders.map((order) =>
+     groups.values()
 
-            new Date(order.createdAt || 0).getTime()
+   )
 
-          )
+     .map((group) => ({
 
-        );
+       ...group,
 
 
 
-        return bLatest - aLatest;
+       orders: [
 
-      });
+         ...group.orders,
 
-  }, [filteredOrders]);
+       ].sort(
 
+         (a, b) =>
 
+           new Date(
 
-  // =========================================================
+             a.createdAt || 0
 
-  // LOADING
+           ) -
 
-  // =========================================================
+           new Date(
 
+             b.createdAt || 0
 
+           )
 
-  if (loading) {
+       ),
 
-    return (
+     }))
 
-      <div className="kitchen-page">
+     .sort((a, b) => {
 
-        <AdminNavigation />
+       const aLatest = Math.max(
 
+         ...a.orders.map((order) =>
 
+           new Date(
 
-        <main className="kitchen-main">
+             order.createdAt || 0
 
-          <div className="kitchen-loading">
+           ).getTime()
 
-            <div className="loading-spinner"></div>
+         )
 
+       );
 
 
-            <h2>Loading kitchen</h2>
 
+       const bLatest = Math.max(
 
+         ...b.orders.map((order) =>
 
-            <p>
+           new Date(
 
-              Connecting to your live order board...
+             order.createdAt || 0
 
-            </p>
+           ).getTime()
 
-          </div>
+         )
 
-        </main>
+       );
 
-      </div>
 
-    );
 
-  }
+       return bLatest - aLatest;
 
+     });
 
+ }, [filteredOrders]);
 
-  // =========================================================
 
-  // DASHBOARD
 
-  // =========================================================
+ // =========================================================
 
+ // LOADING
 
+ // =========================================================
 
-  return (
 
-    <div className="kitchen-page">
 
-      <AdminNavigation />
+ if (loading) {
 
+   return (
 
+     <div className="kitchen-page">
 
-      <main className="kitchen-main">
+       <AdminNavigation />
 
 
 
-        {/* =================================================
+       <main className="kitchen-main">
 
-            HEADER
+         <div className="kitchen-loading">
 
-        \================================================= */}
+           <div className="loading-spinner"></div>
 
 
 
-        <header className="kitchen-header">
+           <h2>Loading kitchen</h2>
 
 
 
-          <div className="kitchen-header-copy">
+           <p>
 
-            <div className="kitchen-live">
+             Connecting to your live
 
-              <span className="kitchen-live-dot"></span>
+             order board...
 
-              LIVE KITCHEN
+           </p>
 
-            </div>
+         </div>
 
+       </main>
 
+     </div>
 
-            <h1>Kitchen Order Board</h1>
+   );
 
+ }
 
 
-            <p>
 
-              Keep every order moving from
+ // =========================================================
 
-              received to served.
+ // DASHBOARD
 
-            </p>
+ // =========================================================
 
-          </div>
 
 
+ return (
 
-          <div className="kitchen-header-actions">
+   <div className="kitchen-page">
 
+     <AdminNavigation />
 
 
-            <div className="kitchen-orders-indicator">
 
-              <span>Active orders</span>
+     <main className="kitchen-main">
 
-              <strong>
+       {/* HEADER */}
 
-                {activeOrdersCount}
 
-              </strong>
 
-            </div>
+       <header className="kitchen-header">
 
+         <div className="kitchen-header-copy">
 
+           <div className="kitchen-live">
 
-            <button
+             <span className="kitchen-live-dot"></span>
 
-              className="kitchen-refresh"
+             LIVE KITCHEN
 
-              onClick={handleRefresh}
+           </div>
 
-              disabled={refreshing}
 
-            >
 
-              <span
+           <h1>
 
-                className={
+             Kitchen Order Board
 
-                  refreshing
+           </h1>
 
-                    ? "refresh-icon spinning"
 
-                    : "refresh-icon"
 
-                }
+           <p>
 
-              >
+             Receive customer orders
 
-                ↻
+             and confirm them with one
 
-              </span>
+             click.
 
+           </p>
 
+         </div>
 
-              {refreshing
 
-                ? "Refreshing"
 
-                : "Refresh"}
+         <div className="kitchen-header-actions">
 
-            </button>
+           <div className="kitchen-orders-indicator">
 
+             <span>
 
+               Active orders
 
-          </div>
+             </span>
 
-        </header>
 
 
+             <strong>
 
-        {/* =================================================
+               {activeOrdersCount}
 
-            STATUS OVERVIEW
+             </strong>
 
-        \================================================= */}
+           </div>
 
 
 
-        <section className="kitchen-status-overview">
+           <button
 
+             className="kitchen-refresh"
 
+             onClick={
 
-          <button
+               handleRefresh
 
-            className={`status-overview-card ${
+             }
 
-              activeFilter === "All"
+             disabled={refreshing}
 
-                ? "active"
+           >
 
-                : ""
+             <span
 
-            }`}
+               className={
 
-            onClick={() =>
+                 refreshing
 
-              setActiveFilter("All")
+                   ? "refresh-icon spinning"
 
-            }
+                   : "refresh-icon"
 
-          >
+               }
 
-            <div className="status-overview-top">
+             >
 
-              <span className="status-overview-icon neutral">
+               ↻
 
-                ◉
+             </span>
 
-              </span>
 
 
+             {refreshing
 
-              <span className="status-overview-label">
+               ? "Refreshing"
 
-                All orders
+               : "Refresh"}
 
-              </span>
+           </button>
 
-            </div>
+         </div>
 
+       </header>
 
 
-            <strong>
 
-              {orderCounts.all}
+       {/* STATUS OVERVIEW */}
 
-            </strong>
 
 
+       <section className="kitchen-status-overview">
 
-            <span className="status-overview-description">
+         {/* ALL */}
 
-              Today's order queue
 
-            </span>
 
-          </button>
+         <button
 
+           className={`status-overview-card ${
 
+             activeFilter === "All"
 
-          <button
+               ? "active"
 
-            className={`status-overview-card ${
+               : ""
 
-              activeFilter === "Order Received"
+           }`}
 
-                ? "active"
+           onClick={() =>
 
-                : ""
+             setActiveFilter("All")
 
-            }`}
+           }
 
-            onClick={() =>
+         >
 
-              setActiveFilter(
+           <div className="status-overview-top">
 
-                "Order Received"
+             <span className="status-overview-icon neutral">
 
-              )
+               ◉
 
-            }
+             </span>
 
-          >
 
-            <div className="status-overview-top">
 
-              <span className="status-overview-icon new">
+             <span className="status-overview-label">
 
-                !
+               All orders
 
-              </span>
+             </span>
 
+           </div>
 
 
-              <span className="status-overview-label">
 
-                New
+           <strong>
 
-              </span>
+             {orderCounts.all}
 
-            </div>
+           </strong>
 
 
 
-            <strong>
+           <span className="status-overview-description">
 
-              {orderCounts.new}
+             Today's order queue
 
-            </strong>
+           </span>
 
+         </button>
 
 
-            <span className="status-overview-description">
 
-              Waiting for acceptance
+         {/* NEW */}
 
-            </span>
 
-          </button>
 
+         <button
 
+           className={`status-overview-card ${
 
-          <button
+             activeFilter === "Order Received"
 
-            className={`status-overview-card ${
+               ? "active"
 
-              activeFilter === "Accepted"
+               : ""
 
-                ? "active"
+           }`}
 
-                : ""
+           onClick={() =>
 
-            }`}
+             setActiveFilter("Order Received")
 
-            onClick={() =>
+           }
 
-              setActiveFilter("Accepted")
+         >
 
-            }
+           <div className="status-overview-top">
 
-          >
+             <span className="status-overview-icon new">
 
-            <div className="status-overview-top">
+               !
 
-              <span className="status-overview-icon accepted">
+             </span>
 
-                ✓
 
-              </span>
 
+             <span className="status-overview-label">
 
+               New
 
-              <span className="status-overview-label">
+             </span>
 
-                Accepted
+           </div>
 
-              </span>
 
-            </div>
 
+           <strong>
 
+             {orderCounts.new}
 
-            <strong>
+           </strong>
 
-              {orderCounts.accepted}
 
-            </strong>
 
+           <span className="status-overview-description">
 
+             Waiting for acceptance
 
-            <span className="status-overview-description">
+           </span>
 
-              Ready for preparation
+         </button>
 
-            </span>
 
-          </button>
 
+         {/* ACCEPTED */}
 
 
-          <button
 
-            className={`status-overview-card ${
+         <button
 
-              activeFilter === "Preparing"
+           className={`status-overview-card ${
 
-                ? "active"
+             activeFilter ===
 
-                : ""
+             "Accepted"
 
-            }`}
+               ? "active"
 
-            onClick={() =>
+               : ""
 
-              setActiveFilter("Preparing")
+           }`}
 
-            }
+           onClick={() =>
 
-          >
+             setActiveFilter(
 
-            <div className="status-overview-top">
+               "Accepted"
 
-              <span className="status-overview-icon preparing">
+             )
 
-                ●
+           }
 
-              </span>
+         >
 
+           <div className="status-overview-top">
 
+             <span className="status-overview-icon accepted">
 
-              <span className="status-overview-label">
+               ✓
 
-                Preparing
+             </span>
 
-              </span>
 
-            </div>
 
+             <span className="status-overview-label">
 
+               Accepted
 
-            <strong>
+             </span>
 
-              {orderCounts.preparing}
+           </div>
 
-            </strong>
 
 
+           <strong>
 
-            <span className="status-overview-description">
+             {orderCounts.accepted}
 
-              Currently in kitchen
+           </strong>
 
-            </span>
 
-          </button>
 
+           <span className="status-overview-description">
 
+             Order accepted by kitchen
 
-          <button
+           </span>
 
-            className={`status-overview-card ${
+         </button>
 
-              activeFilter === "Ready"
+       </section>
 
-                ? "active"
 
-                : ""
 
-            }`}
+       {/* TOOLBAR */}
 
-            onClick={() =>
 
-              setActiveFilter("Ready")
 
-            }
+       <section className="kitchen-toolbar">
 
-          >
+         <div className="kitchen-filter-tabs">
 
-            <div className="status-overview-top">
+           {[
 
-              <span className="status-overview-icon ready">
+             {
 
-                ✓
+               label: "All",
 
-              </span>
+               value: "All",
 
+               count:
 
+                 orderCounts.all,
 
-              <span className="status-overview-label">
+             },
 
-                Ready
+             {
 
-              </span>
+               label: "New",
 
-            </div>
+               value: "Order Received",
 
+               count:
 
+                 orderCounts.new,
 
-            <strong>
+             },
 
-              {orderCounts.ready}
+             {
 
-            </strong>
+               label: "Accepted",
 
+               value: "Accepted",
 
+               count:
 
-            <span className="status-overview-description">
+                 orderCounts.accepted,
 
-              Waiting to be served
+             },
 
-            </span>
+           ].map((filter) => (
 
-          </button>
+             <button
 
+               key={filter.value}
 
+               className={
 
-        </section>
+                 activeFilter ===
 
+                 filter.value
 
+                   ? "active"
 
-        {/* =================================================
+                   : ""
 
-            TOOLBAR
+               }
 
-        \================================================= */}
+               onClick={() =>
 
+                 setActiveFilter(
 
+                   filter.value
 
-        <section className="kitchen-toolbar">
+                 )
 
+               }
 
+             >
 
-          <div className="kitchen-filter-tabs">
+               {filter.label}
 
 
 
-            {[
+               <span>
 
-              {
+                 {filter.count}
 
-                label: "All",
+               </span>
 
-                value: "All",
+             </button>
 
-                count: orderCounts.all,
+           ))}
 
-              },
+         </div>
 
-              {
 
-                label: "New",
 
-                value: "Order Received",
+         <div className="kitchen-search">
 
-                count: orderCounts.new,
+           <span className="search-icon">
 
-              },
+             ⌕
 
-              {
+           </span>
 
-                label: "Accepted",
 
-                value: "Accepted",
 
-                count: orderCounts.accepted,
+           <input
 
-              },
+             type="text"
 
-              {
+             placeholder="Search order or table..."
 
-                label: "Preparing",
+             value={searchQuery}
 
-                value: "Preparing",
+             onChange={(event) =>
 
-                count: orderCounts.preparing,
+               setSearchQuery(
 
-              },
+                 event.target.value
 
-              {
+               )
 
-                label: "Ready",
+             }
 
-                value: "Ready",
+           />
 
-                count: orderCounts.ready,
 
-              },
 
-            ].map((filter) => (
+           {searchQuery && (
 
-              <button
+             <button
 
-                key={filter.value}
+               className="search-clear"
 
-                className={
+               onClick={() =>
 
-                  activeFilter === filter.value
+                 setSearchQuery("")
 
-                    ? "active"
+               }
 
-                    : ""
+             >
 
-                }
+               ×
 
-                onClick={() =>
+             </button>
 
-                  setActiveFilter(
+           )}
 
-                    filter.value
+         </div>
 
-                  )
+       </section>
 
-                }
 
-              >
 
-                {filter.label}
+       {/* ORDERS */}
 
 
 
-                <span>
+       <section className="kitchen-orders">
 
-                  {filter.count}
+         <div className="kitchen-orders-header">
 
-                </span>
+           <div>
 
-              </button>
+             <div className="section-eyebrow">
 
-            ))}
+               ORDER QUEUE
 
+             </div>
 
 
-          </div>
 
+             <h2>
 
+               Active Orders
 
-          <div className="kitchen-search">
+             </h2>
 
 
 
-            <span className="search-icon">
+             <p>
 
-              ⌕
+               {filteredOrders.length}{" "}
 
-            </span>
+               {filteredOrders.length ===
 
+               1
 
+                 ? "order"
 
-            <input
+                 : "orders"}{" "}
 
-              type="text"
+               currently displayed
 
-              placeholder="Search order or table..."
+             </p>
 
-              value={searchQuery}
+           </div>
 
-              onChange={(event) =>
 
-                setSearchQuery(
 
-                  event.target.value
+           {(activeFilter !==
 
-                )
+             "All" ||
 
-              }
+             searchQuery) && (
 
-            />
+             <button
 
+               className="clear-filters"
 
+               onClick={() => {
 
-            {searchQuery && (
+                 setActiveFilter(
 
-              <button
+                   "All"
 
-                className="search-clear"
+                 );
 
-                onClick={() =>
 
-                  setSearchQuery("")
 
-                }
+                 setSearchQuery("");
 
-              >
+               }}
 
-                ×
+             >
 
-              </button>
+               Clear filters
 
-            )}
+             </button>
 
+           )}
 
+         </div>
 
-          </div>
 
 
+         {groupedOrders.length ===
 
-        </section>
+         0 ? (
 
+           <div className="kitchen-empty">
 
+             <div className="kitchen-empty-icon">
 
-        {/* =================================================
+               ✓
 
-            ORDERS HEADER
+             </div>
 
-        \================================================= */}
 
 
+             <h3>
 
-        <section className="kitchen-orders">
+               {searchQuery ||
 
+               activeFilter !==
 
+                 "All"
 
-          <div className="kitchen-orders-header">
+                 ? "No matching orders"
 
+                 : "Kitchen is clear"}
 
+             </h3>
 
-            <div>
 
-              <div className="section-eyebrow">
 
-                ORDER QUEUE
+             <p>
 
-              </div>
+               {searchQuery
 
+                 ? "Try another order number or table."
 
+                 : activeFilter !==
 
-              <h2>Active Orders</h2>
+                   "All"
 
+                 ? "There are no orders in this status."
 
+                 : "New customer orders will appear here automatically."}
 
-              <p>
+             </p>
 
-                {filteredOrders.length}{" "}
 
-                {filteredOrders.length === 1
 
-                  ? "order"
+             {(searchQuery ||
 
-                  : "orders"}{" "}
+               activeFilter !==
 
-                tables currently displayed
+                 "All") && (
 
-              </p>
+               <button
 
-            </div>
+                 onClick={() => {
 
+                   setSearchQuery(
 
+                     ""
 
-            {(activeFilter !== "All" ||
+                   );
 
-              searchQuery) && (
+                   setActiveFilter(
 
-              <button
+                     "All"
 
-                className="clear-filters"
+                   );
 
-                onClick={() => {
+                 }}
 
-                  setActiveFilter("All");
+               >
 
-                  setSearchQuery("");
+                 View all orders
 
-                }}
+               </button>
 
-              >
+             )}
 
-                Clear filters
+           </div>
 
-              </button>
+         ) : (
 
-            )}
+           <div className="kitchen-table-grid">
 
+             {groupedOrders.map(
 
+               (group) => {
 
-          </div>
+                 const sessionTotal =
 
+                   group.orders.reduce(
 
+                     (
 
-          {/* =================================================
+                       sum,
 
-              EMPTY
+                       order
 
-          \================================================= */}
+                     ) =>
 
+                       sum +
 
+                       Number(
 
-          {groupedOrders.length === 0 ? (
+                         order.totalPrice ||
 
-            <div className="kitchen-empty">
+                           0
 
+                       ),
 
+                     0
 
-              <div className="kitchen-empty-icon">
+                   );
 
-                ✓
 
-              </div>
 
+                 const sessionItems =
 
+                   group.orders.reduce(
 
-              <h3>
+                     (
 
-                {searchQuery ||
+                       sum,
 
-                activeFilter !== "All"
+                       order
 
-                  ? "No matching orders"
+                     ) =>
 
-                  : "Kitchen is clear"}
+                       sum +
 
-              </h3>
+                       Number(
 
+                         order.totalItems ||
 
+                           0
 
-              <p>
+                       ),
 
-                {searchQuery
+                     0
 
-                  ? "Try another order number or table."
+                   );
 
-                  : activeFilter !== "All"
 
-                  ? "There are no orders in this status."
 
-                  : "New customer orders will appear here automatically."}
+                 return (
 
-              </p>
+                   <article
 
+                     className="kitchen-table-card"
 
+                     key={group.key}
 
-              {(searchQuery ||
+                   >
 
-                activeFilter !== "All") && (
+                     {/* TABLE HEADER */}
 
-                <button
 
-                  onClick={() => {
 
-                    setSearchQuery("");
+                     <div className="kitchen-table-header">
 
-                    setActiveFilter("All");
+                       <div className="kitchen-table-heading">
 
-                  }}
+                         <div className="kitchen-table-icon">
 
-                >
+                           T
 
-                  View all orders
+                         </div>
 
-                </button>
 
-              )}
 
+                         <div>
 
+                           <span>
 
-            </div>
+                             TABLE
 
-          ) : (
+                           </span>
 
 
 
-            /* =================================================
+                           <h3>
 
-               ORDER GRID
+                             {
 
-            \================================================= */
+                               group.tableNumber
 
+                             }
 
+                           </h3>
 
-            <div className="kitchen-table-grid">
+                         </div>
 
-              {groupedOrders.map((group) => {
+                       </div>
 
-                const sessionTotal = group.orders.reduce(
 
-                  (sum, order) =>
 
-                    sum + Number(order.totalPrice || 0),
+                       <div className="kitchen-table-summary">
 
-                  0
+                         <strong>
 
-                );
+                           {
 
-                const sessionItems = group.orders.reduce(
+                             group
 
-                  (sum, order) =>
+                               .orders
 
-                    sum + Number(order.totalItems || 0),
+                               .length
 
-                  0
+                           }
 
-                );
+                         </strong>
 
 
 
-                return (
+                         <span>
 
-                  <article
-                    className="kitchen-table-card"
-                    key={group.key}
-                  >
+                           {
 
-                    {/* TABLE / SESSION HEADER */}
+                             group
 
-                    <div className="kitchen-table-header">
+                               .orders
 
-                      <div className="kitchen-table-heading">
+                               .length ===
 
-                        <div className="kitchen-table-icon">
-                          T
-                        </div>
+                             1
 
-                        <div>
+                               ? "order"
 
-                          <span>TABLE</span>
+                               : "orders"
 
-                          <h3>{group.tableNumber}</h3>
+                           }
 
-                        </div>
+                         </span>
 
-                      </div>
+                       </div>
 
-                      <div className="kitchen-table-summary">
+                     </div>
 
-                        <strong>
-                          {group.orders.length}
-                        </strong>
 
-                        <span>
-                          {group.orders.length === 1
-                            ? "order"
-                            : "orders"}
-                        </span>
 
-                      </div>
+                     {/* SESSION TOTAL */}
 
-                    </div>
 
 
+                     <div className="kitchen-table-meta">
 
-                    {/* SESSION TOTAL */}
+                       <span>
 
-                    <div className="kitchen-table-meta">
+                         {sessionItems}{" "}
 
-                      <span>
-                        {sessionItems} {sessionItems === 1 ? "item" : "items"}
-                      </span>
+                         {sessionItems ===
 
-                      <span>
-                        Session total ₹{sessionTotal}
-                      </span>
+                         1
 
-                    </div>
+                           ? "item"
 
+                           : "items"}
 
+                       </span>
 
-                    {/* ORDERS INSIDE THIS TABLE */}
 
-                    <div className="kitchen-session-orders">
 
-                      {group.orders.map((order, index) => {
+                       <span>
 
-                        const nextStatus = getNextStatus(
-                          order.status
-                        );
+                         Session total ₹
 
-                        const buttonText = getButtonText(
-                          order.status
-                        );
+                         {
 
-                        const statusClass = getStatusClass(
-                          order.status
-                        );
+                           sessionTotal
 
-                        return (
+                         }
 
-                          <div
-                            className={`kitchen-session-order ${statusClass}`}
-                            key={order._id}
-                          >
+                       </span>
 
-                            <div className="session-order-header">
+                     </div>
 
-                              <div>
 
-                                <span className="session-order-label">
-                                  ORDER {index + 1}
-                                </span>
 
-                                <strong>
-                                  #{order.orderId}
-                                </strong>
+                     {/* ORDERS */}
 
-                              </div>
 
-                              <div className={`session-order-status ${statusClass}`}>
 
-                                <span></span>
+                     <div className="kitchen-session-orders">
 
-                                {getStatusLabel(order.status)}
+                       {group.orders.map(
 
-                              </div>
+                         (
 
-                            </div>
+                           order,
 
+                           index
 
+                         ) => {
 
-                            <div className="session-order-meta">
+                           const nextStatus =
 
-                              <span>
-                                {formatOrderTime(order.createdAt)}
-                              </span>
+                             getNextStatus(
 
-                              {order.orderSequence && (
-                                <span>
-                                  Order {order.orderSequence}
-                                </span>
-                              )}
+                               order.status
 
-                            </div>
+                             );
 
 
 
-                            <div className="session-order-items">
+                           const buttonText =
 
-                              {order.items.map((item, itemIndex) => (
+                             getButtonText(
 
-                                <div
-                                  className="session-order-item"
-                                  key={
-                                    item.id ||
-                                    `${item.name}-${itemIndex}`
-                                  }
-                                >
+                               order.status
 
-                                  <div className="session-item-qty">
-                                    {item.quantity}
-                                  </div>
+                             );
 
-                                  <div className="session-item-info">
 
-                                    <strong>{item.name}</strong>
 
-                                    <span>
-                                      ₹{item.price} each
-                                    </span>
+                           const statusClass =
 
-                                  </div>
+                             getStatusClass(
 
-                                  <strong className="session-item-price">
-                                    ₹{Number(item.price || 0) * Number(item.quantity || 0)}
-                                  </strong>
+                               order.status
 
-                                </div>
+                             );
 
-                              ))}
 
-                            </div>
 
+                           return (
 
+                             <div
 
-                            <div className="session-order-total">
+                               className={`kitchen-session-order ${statusClass}`}
 
-                              <span>Order total</span>
+                               key={
 
-                              <strong>
-                                ₹{order.totalPrice}
-                              </strong>
+                                 order._id
 
-                            </div>
+                               }
 
+                             >
 
+                               {/* ORDER HEADER */}
 
-                            {nextStatus ? (
 
-                              <button
-                                className={`session-order-action ${statusClass}`}
-                                onClick={() =>
-                                  updateStatus(
-                                    order._id,
-                                    nextStatus
-                                  )
-                                }
-                              >
 
-                                <span>
-                                  {order.status === "Order Received" && "✓"}
-                                  {order.status === "Accepted" && "▶"}
-                                  {order.status === "Preparing" && "✓"}
-                                  {order.status === "Ready" && "✓"}
-                                </span>
+                               <div className="session-order-header">
 
-                                <span>{buttonText}</span>
+                                 <div>
 
-                                <span>→</span>
+                                   <span className="session-order-label">
 
-                              </button>
+                                     ORDER{" "}
 
-                            ) : (
+                                     {index +
 
-                              <div className="session-order-completed">
-                                <span>✓</span>
-                                Order served
-                              </div>
+                                       1}
 
-                            )}
+                                   </span>
 
-                          </div>
 
-                        );
 
-                      })}
+                                   <strong>
 
-                    </div>
+                                     #
 
-                  </article>
+                                     {
 
-                );
+                                       order.orderId
 
-              })}
+                                     }
 
-            </div>
+                                   </strong>
 
-          )}
+                                 </div>
 
 
 
-        </section>
+                                 <div
 
+                                   className={`session-order-status ${statusClass}`}
 
+                                 >
 
-      </main>
+                                   <span></span>
 
-    </div>
 
-  );
+
+                                   {getStatusLabel(
+
+                                     order.status
+
+                                   )}
+
+                                 </div>
+
+                               </div>
+
+
+
+                               {/* ORDER META */}
+
+
+
+                               <div className="session-order-meta">
+
+                                 <span>
+
+                                   {formatOrderTime(
+
+                                     order.createdAt
+
+                                   )}
+
+                                 </span>
+
+
+
+                                 {order.orderSequence && (
+
+                                   <span>
+
+                                     Order{" "}
+
+                                     {
+
+                                       order.orderSequence
+
+                                     }
+
+                                   </span>
+
+                                 )}
+
+                               </div>
+
+
+
+                               {/* ITEMS */}
+
+
+
+                               <div className="session-order-items">
+
+                                 {order.items.map(
+
+                                   (
+
+                                     item,
+
+                                     itemIndex
+
+                                   ) => (
+
+                                     <div
+
+                                       className="session-order-item"
+
+                                       key={
+
+                                         item.id ||
+
+                                         `${item.name}-${itemIndex}`
+
+                                       }
+
+                                     >
+
+                                       <div className="session-item-qty">
+
+                                         {
+
+                                           item.quantity
+
+                                         }
+
+                                       </div>
+
+
+
+                                       <div className="session-item-info">
+
+                                         <strong>
+
+                                           {
+
+                                             item.name
+
+                                           }
+
+                                         </strong>
+
+
+
+                                         <span>
+
+                                           ₹
+
+                                           {
+
+                                             item.price
+
+                                           }{" "}
+
+                                           each
+
+                                         </span>
+
+                                       </div>
+
+
+
+                                       <strong className="session-item-price">
+
+                                         ₹
+
+                                         {Number(
+
+                                           item.price ||
+
+                                             0
+
+                                         ) *
+
+                                           Number(
+
+                                             item.quantity ||
+
+                                               0
+
+                                           )}
+
+                                       </strong>
+
+                                     </div>
+
+                                   )
+
+                                 )}
+
+                               </div>
+
+
+
+                               {/* ORDER TOTAL */}
+
+
+
+                               <div className="session-order-total">
+
+                                 <span>
+
+                                   Order
+
+                                   total
+
+                                 </span>
+
+
+
+                                 <strong>
+
+                                   ₹
+
+                                   {
+
+                                     order.totalPrice
+
+                                   }
+
+                                 </strong>
+
+                               </div>
+
+
+
+                               {/* ACCEPT BUTTON */}
+
+
+
+                               {nextStatus ? (
+
+                                 <button
+
+                                   className={`session-order-action ${statusClass}`}
+
+                                   onClick={() =>
+
+                                     updateStatus(
+
+                                       order._id,
+
+                                       nextStatus
+
+                                     )
+
+                                   }
+
+                                 >
+
+                                   <span>
+
+                                     ✓
+
+                                   </span>
+
+
+
+                                   <span>
+
+                                     {
+
+                                       buttonText
+
+                                     }
+
+                                   </span>
+
+
+
+                                   <span>
+
+                                     →
+
+                                   </span>
+
+                                 </button>
+
+                               ) : (
+
+                                 <div className="session-order-completed">
+
+                                   <span>
+
+                                     ✓
+
+                                   </span>
+
+
+
+                                   Order
+
+                                   accepted
+
+                                 </div>
+
+                               )}
+
+                             </div>
+
+                           );
+
+                         }
+
+                       )}
+
+                     </div>
+
+                   </article>
+
+                 );
+
+               }
+
+             )}
+
+           </div>
+
+         )}
+
+       </section>
+
+     </main>
+
+   </div>
+
+ );
 
 }
 

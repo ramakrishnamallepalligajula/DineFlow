@@ -79,6 +79,9 @@ const billingOptions = {
 
 function SubscriptionPlans() {
   const navigate = useNavigate();
+  const {
+  updateSession,
+} = useAuth();
 
   const [billingPeriod, setBillingPeriod] =
     useState("monthly");
@@ -193,6 +196,8 @@ function SubscriptionPlans() {
   // CONTINUE TO DASHBOARD
   // ==========================================
 
+/*  
+
 const handleContinue = async () => {
   try {
     const token =
@@ -268,6 +273,159 @@ const handleContinue = async () => {
     });
   }
 };
+*/
+
+
+const handleContinue = async () => {
+  try {
+    const token =
+      localStorage.getItem("token");
+
+    // ==========================================
+    // AUTH CHECK
+    // ==========================================
+
+    if (!token) {
+      setShowWelcome(false);
+
+      navigate("/login", {
+        replace: true,
+      });
+
+      return;
+    }
+
+    // ==========================================
+    // GET FRESH ACCOUNT DATA
+    // ==========================================
+
+    const response = await fetch(
+      `${API_URL}/api/auth/me`,
+      {
+        method: "GET",
+
+        headers: {
+          Authorization:
+            `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("restaurant");
+
+      setShowWelcome(false);
+
+      navigate("/login", {
+        replace: true,
+      });
+
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        "Failed to refresh account information"
+      );
+    }
+
+    const data =
+      await response.json();
+
+    // ==========================================
+    // VALIDATE ACCOUNT DATA
+    // ==========================================
+
+    if (
+      !data.user ||
+      !data.restaurant
+    ) {
+      throw new Error(
+        "Account information is incomplete"
+      );
+    }
+
+    const subscription =
+      data.restaurant.subscription;
+
+    const status =
+      subscription?.status;
+
+    // ==========================================
+    // MAKE SURE TRIAL WAS ACTUALLY ACTIVATED
+    // ==========================================
+
+    const hasAccess =
+      status === "TRIALING" ||
+      status === "ACTIVE";
+
+    if (!hasAccess) {
+      throw new Error(
+        "Your free trial is not active yet. Please try again."
+      );
+    }
+
+    console.log(
+      "✅ Trial verified:",
+      {
+        plan:
+          subscription.plan,
+
+        status:
+          subscription.status,
+
+        trialEndsAt:
+          subscription.trialEndsAt,
+      }
+    );
+
+    // ==========================================
+    // IMPORTANT
+    //
+    // Update React AuthContext AND localStorage.
+    //
+    // Previously only localStorage was updated,
+    // which caused ProtectedRoute to use stale
+    // subscription data.
+    // ==========================================
+
+    updateSession(
+      data.user,
+      data.restaurant
+    );
+
+    // ==========================================
+    // CLOSE POPUP
+    // ==========================================
+
+    setShowWelcome(false);
+
+    // ==========================================
+    // ENTER DINEFLOW
+    // ==========================================
+
+    navigate("/admin", {
+      replace: true,
+    });
+  } catch (error) {
+    console.error(
+      "❌ Failed to enter DineFlow:",
+      error
+    );
+
+    setError(
+      error.message ||
+        "Unable to enter DineFlow. Please try again."
+    );
+
+    // Keep popup open so the user can retry.
+    // DO NOT navigate to /admin when verification
+    // fails.
+  }
+};
+
 
   return (
     <div className="subscription-page">
@@ -297,7 +455,7 @@ const handleContinue = async () => {
         </div>
 
         <div className="trial-badge">
-          🎉 7-Day Free Trial
+          🎉 3-Day Free Trial
         </div>
 
       </header>
@@ -319,7 +477,7 @@ const handleContinue = async () => {
         </h1>
 
         <p>
-          Start with a 7-day free trial.
+          Start with a 3-day free trial.
           No complicated setup. Choose your
           billing period and grow with DineFlow.
         </p>
@@ -476,7 +634,7 @@ const handleContinue = async () => {
               )}
 
               <div className="trial-message">
-                🎁 7-day free trial included
+                🎁 3-day free trial included
               </div>
 
               <button
@@ -539,7 +697,7 @@ const handleContinue = async () => {
           </strong>
 
           <p>
-            Your 7-day trial gives you time to
+            Your 3-day trial gives you time to
             experience DineFlow before committing
             to a paid subscription.
           </p>
@@ -638,7 +796,7 @@ const handleContinue = async () => {
                     </span>
 
                     <strong>
-                      7 Days Free
+                      3 Days Free
                     </strong>
                   </div>
 

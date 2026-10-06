@@ -1,0 +1,799 @@
+/* =========================================================
+   CHECKOUT PAGE
+========================================================= */
+
+.checkout-page {
+  --checkout-sea: #0d5c63;
+  --checkout-sea-dark: #073f45;
+  --checkout-wood: #5b321e;
+  --checkout-wood-dark: #351c12;
+  --checkout-cream: #fff8e8;
+  --checkout-paper: #fffdf5;
+  --checkout-orange: #f05a22;
+  --checkout-orange-dark: #c63f13;
+  --checkout-gold: #f5b942;
+  --checkout-text: #2b1b13;
+  --checkout-muted: #806c5d;
+
+  min-height: 100vh;
+
+  padding: 48px 20px 70px;
+
+  box-sizing: border-box;
+
+  background:
+    radial-gradient(
+      circle at 10% 10%,
+      rgba(245, 185, 66, 0.18),
+      transparent 25%
+    ),
+    radial-gradient(
+      circle at 90% 20%,
+      rgba(13, 92, 99, 0.1),
+      transparent 28%
+    ),
+    linear-gradient(
+      135deg,
+      #fffaf0,
+      #f4e5d1
+    );
+
+  color: var(--checkout-text);
+
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+/* =========================================================
+   HEADER
+========================================================= */
+
+.checkout-header {
+  width: min(760px, 100%);
+
+  margin: 0 auto 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 16px;
+
+  text-align: left;
+}
+
+.checkout-header-icon {
+  width: 58px;
+  height: 58px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 18px;
+
+  background: var(--checkout-wood);
+
+  box-shadow:
+    0 12px 30px rgba(53, 28, 18, 0.2);
+
+  font-size: 29px;
+}
+
+.checkout-eyebrow {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: var(--checkout-orange);
+
+  font-size: 10px;
+  font-weight: 900;
+
+  letter-spacing: 0.18em;
+}
+
+.checkout-header h1 {
+  margin: 0;
+
+  color: var(--checkout-wood-dark);
+
+  font-family: Georgia, serif;
+
+  font-size: clamp(36px, 6vw, 54px);
+
+  line-height: 1;
+}
+
+.checkout-restaurant-name {
+  margin: 7px 0 0;
+
+  color: var(--checkout-muted);
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* =========================================================
+   TABLE CARD
+========================================================= */
+
+.checkout-table-card {
+  width: min(760px, 100%);
+
+  margin: 0 auto 28px;
+
+  padding: 18px 20px;
+
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+
+  gap: 15px;
+
+  border: 1px solid rgba(255, 255, 255, 0.8);
+
+  border-radius: 20px;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(91, 50, 30, 0.98),
+      rgba(53, 28, 18, 0.98)
+    );
+
+  color: white;
+
+  box-shadow:
+    0 16px 38px rgba(53, 28, 18, 0.2);
+}
+
+.checkout-table-icon {
+  width: 47px;
+  height: 47px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 15px;
+
+  background: rgba(255, 255, 255, 0.11);
+
+  font-size: 22px;
+}
+
+.checkout-table-content {
+  flex: 1;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.checkout-table-content > span {
+  margin-bottom: 2px;
+
+  color: rgba(255, 255, 255, 0.55);
+
+  font-size: 9px;
+  font-weight: 900;
+
+  letter-spacing: 0.16em;
+}
+
+.checkout-table-content strong {
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.checkout-table-content p {
+  margin: 3px 0 0;
+
+  color: rgba(255, 255, 255, 0.7);
+
+  font-size: 12px;
+}
+
+.checkout-table-check {
+  width: 31px;
+  height: 31px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: var(--checkout-orange);
+
+  font-weight: 900;
+}
+
+/* =========================================================
+   SECTION
+========================================================= */
+
+.checkout-section {
+  width: min(760px, 100%);
+
+  margin: 0 auto;
+}
+
+.checkout-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  margin-bottom: 12px;
+}
+
+.checkout-section-heading span {
+  color: var(--checkout-orange);
+
+  font-size: 10px;
+  font-weight: 900;
+
+  letter-spacing: 0.16em;
+}
+
+.checkout-section-heading h2 {
+  margin: 3px 0 0;
+
+  font-family: Georgia, serif;
+
+  font-size: 28px;
+
+  color: var(--checkout-wood-dark);
+}
+
+.checkout-section-total {
+  color: var(--checkout-wood);
+
+  font-size: 22px;
+  font-weight: 900;
+}
+
+/* =========================================================
+   ITEMS
+========================================================= */
+
+.checkout-items {
+  overflow: hidden;
+
+  padding: 8px 18px;
+
+  border: 1px solid rgba(255, 255, 255, 0.8);
+
+  border-radius: 22px;
+
+  background: rgba(255, 253, 245, 0.92);
+
+  box-shadow:
+    0 12px 35px rgba(53, 28, 18, 0.1);
+}
+
+.checkout-item {
+  min-height: 78px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 12px;
+
+  border-bottom: 1px solid #eee0cf;
+}
+
+.checkout-item:last-child {
+  border-bottom: none;
+}
+
+.checkout-item-number {
+  width: 25px;
+
+  flex-shrink: 0;
+
+  color: #b8a08e;
+
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.checkout-item-icon {
+  width: 45px;
+  height: 45px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 14px;
+
+  background: #f6eadb;
+
+  font-size: 21px;
+}
+
+.checkout-item-info {
+  flex: 1;
+
+  min-width: 0;
+}
+
+.checkout-item-info h3 {
+  margin: 0;
+
+  color: var(--checkout-text);
+
+  font-size: 15px;
+  font-weight: 850;
+
+  text-transform: capitalize;
+}
+
+.checkout-item-info p {
+  margin: 4px 0 0;
+
+  color: var(--checkout-muted);
+
+  font-size: 12px;
+}
+
+.checkout-item-total {
+  flex-shrink: 0;
+
+  color: var(--checkout-wood);
+
+  font-size: 15px;
+  font-weight: 900;
+}
+
+/* =========================================================
+   SUMMARY
+========================================================= */
+
+.checkout-summary {
+  width: min(760px, 100%);
+
+  margin: 22px auto 0;
+
+  padding: 20px;
+
+  box-sizing: border-box;
+
+  border-radius: 22px;
+
+  background: white;
+
+  box-shadow:
+    0 12px 35px rgba(53, 28, 18, 0.1);
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  margin-bottom: 11px;
+
+  color: var(--checkout-muted);
+
+  font-size: 14px;
+}
+
+.summary-row strong {
+  color: var(--checkout-text);
+}
+
+.summary-divider {
+  height: 1px;
+
+  margin: 15px 0;
+
+  background: #eadaca;
+}
+
+.summary-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.summary-total div {
+  display: flex;
+  flex-direction: column;
+}
+
+.summary-total span {
+  color: var(--checkout-orange);
+
+  font-size: 10px;
+  font-weight: 900;
+
+  letter-spacing: 0.15em;
+}
+
+.summary-total small {
+  margin-top: 3px;
+
+  color: var(--checkout-muted);
+
+  font-size: 10px;
+}
+
+.summary-total > strong {
+  color: var(--checkout-orange);
+
+  font-size: 26px;
+  font-weight: 950;
+}
+
+/* =========================================================
+   TRUST MESSAGE
+========================================================= */
+
+.checkout-trust {
+  width: min(760px, 100%);
+
+  margin: 18px auto;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  gap: 7px;
+
+  color: var(--checkout-muted);
+
+  text-align: center;
+}
+
+.checkout-trust span {
+  color: var(--checkout-gold);
+}
+
+.checkout-trust p {
+  margin: 0;
+
+  font-size: 11px;
+}
+
+/* =========================================================
+   PLACE ORDER
+========================================================= */
+
+.place-order-button {
+  width: min(760px, 100%);
+
+  min-height: 60px;
+
+  display: block;
+
+  margin: 0 auto;
+
+  padding: 0 22px;
+
+  border: none;
+
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--checkout-orange),
+      var(--checkout-orange-dark)
+    );
+
+  color: white;
+
+  font-family: inherit;
+
+  font-size: 16px;
+  font-weight: 900;
+
+  box-shadow:
+    0 14px 30px rgba(198, 63, 19, 0.25);
+
+  cursor: pointer;
+
+  -webkit-tap-highlight-color: transparent;
+}
+
+.place-order-button:disabled {
+  opacity: 0.7;
+
+  cursor: not-allowed;
+}
+
+.place-order-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+}
+
+.order-spinner {
+  display: inline-block;
+
+  font-size: 20px;
+
+  animation: checkoutSpin 0.8s linear infinite;
+}
+
+@keyframes checkoutSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   BACK
+========================================================= */
+
+.back-to-menu {
+  display: block;
+
+  margin: 15px auto 0;
+
+  border: none;
+
+  background: transparent;
+
+  color: var(--checkout-muted);
+
+  font-family: inherit;
+
+  font-size: 12px;
+  font-weight: 750;
+
+  cursor: pointer;
+}
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+.checkout-loading {
+  min-height: 70vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-direction: column;
+
+  text-align: center;
+}
+
+.checkout-loading-icon {
+  width: 72px;
+  height: 72px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 24px;
+
+  background: var(--checkout-wood);
+
+  font-size: 32px;
+
+  box-shadow:
+    0 15px 35px rgba(53, 28, 18, 0.2);
+}
+
+.checkout-loading h2 {
+  margin: 20px 0 5px;
+
+  font-family: Georgia, serif;
+
+  color: var(--checkout-wood-dark);
+}
+
+.checkout-loading p {
+  margin: 0;
+
+  color: var(--checkout-muted);
+}
+
+/* =========================================================
+   EMPTY
+========================================================= */
+
+.checkout-empty {
+  min-height: 70vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-direction: column;
+
+  text-align: center;
+}
+
+.checkout-empty-icon {
+  font-size: 60px;
+}
+
+.checkout-empty h1 {
+  margin: 15px 0 5px;
+
+  font-family: Georgia, serif;
+
+  color: var(--checkout-wood-dark);
+}
+
+.checkout-empty p {
+  margin: 0 0 20px;
+
+  color: var(--checkout-muted);
+}
+
+.back-menu-button {
+  padding: 13px 20px;
+
+  border: none;
+
+  border-radius: 13px;
+
+  background: var(--checkout-wood);
+
+  color: white;
+
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+@media (max-width: 600px) {
+  .checkout-page {
+    padding: 25px 12px 45px;
+  }
+
+  .checkout-header {
+    gap: 11px;
+
+    margin-bottom: 20px;
+  }
+
+  .checkout-header-icon {
+    width: 48px;
+    height: 48px;
+
+    border-radius: 15px;
+
+    font-size: 23px;
+  }
+
+  .checkout-eyebrow {
+    font-size: 8px;
+  }
+
+  .checkout-header h1 {
+    font-size: 38px;
+  }
+
+  .checkout-restaurant-name {
+    font-size: 12px;
+  }
+
+  .checkout-table-card {
+    padding: 14px;
+
+    border-radius: 17px;
+  }
+
+  .checkout-table-icon {
+    width: 42px;
+    height: 42px;
+
+    font-size: 19px;
+  }
+
+  .checkout-table-content strong {
+    font-size: 15px;
+  }
+
+  .checkout-table-content p {
+    font-size: 10px;
+  }
+
+  .checkout-section-heading h2 {
+    font-size: 24px;
+  }
+
+  .checkout-section-total {
+    font-size: 19px;
+  }
+
+  .checkout-items {
+    padding: 4px 12px;
+
+    border-radius: 18px;
+  }
+
+  .checkout-item {
+    min-height: 70px;
+
+    gap: 8px;
+  }
+
+  .checkout-item-number {
+    display: none;
+  }
+
+  .checkout-item-icon {
+    width: 39px;
+    height: 39px;
+
+    border-radius: 12px;
+
+    font-size: 18px;
+  }
+
+  .checkout-item-info h3 {
+    font-size: 13px;
+  }
+
+  .checkout-item-info p {
+    font-size: 10px;
+  }
+
+  .checkout-item-total {
+    font-size: 13px;
+  }
+
+  .checkout-summary {
+    padding: 17px;
+
+    border-radius: 18px;
+  }
+
+  .summary-total > strong {
+    font-size: 23px;
+  }
+
+  .place-order-button {
+    min-height: 56px;
+
+    border-radius: 16px;
+
+    font-size: 14px;
+  }
+}
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .order-spinner {
+    animation: none;
+  }
+}
+
+.order-item-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
+}

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
-
 import AdminNavigation from "../components/AdminNavigation";
 import "./TableQR.css";
 import { apiFetch } from "../services/api";
@@ -12,7 +11,6 @@ function TableQR() {
   const [creating, setCreating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
 
@@ -23,7 +21,6 @@ function TableQR() {
   const loadTables = async () => {
     try {
       const response = await apiFetch("/api/tables");
-
       const data = await response.json();
 
       if (!response.ok) {
@@ -55,7 +52,6 @@ function TableQR() {
         setLoading(true);
 
         const response = await apiFetch("/api/tables");
-
         const data = await response.json();
 
         if (!response.ok) {
@@ -120,24 +116,34 @@ function TableQR() {
       return;
     }
 
-    const numericTableNumber = Number(trimmedNumber);
+    /*
+      Supports:
 
-    if (
-      !Number.isInteger(numericTableNumber) ||
-      numericTableNumber < 1
-    ) {
-      alert("Enter a valid table number");
-      return;
-    }
+      1
+      2
+      10
+      AC-1
+      AC-2
+      NON-AC-1
+      NON-AC-2
+      VIP-1
+      ROOF-1
+    */
 
+    const normalizedTableNumber =
+      trimmedNumber.toUpperCase();
+
+    // Check duplicate table numbers
     const alreadyExists = tables.some(
       (table) =>
-        Number(table.tableNumber) === numericTableNumber
+        String(table.tableNumber || "")
+          .trim()
+          .toUpperCase() === normalizedTableNumber
     );
 
     if (alreadyExists) {
       alert(
-        `Table ${numericTableNumber} already exists.`
+        `Table ${normalizedTableNumber} already exists.`
       );
       return;
     }
@@ -152,7 +158,7 @@ function TableQR() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          tableNumber: numericTableNumber,
+          tableNumber: normalizedTableNumber,
         }),
       });
 
@@ -188,65 +194,68 @@ function TableQR() {
     }
   };
 
-// =========================================
-// REMOVE TABLE
-// =========================================
+  // =========================================
+  // REMOVE TABLE
+  // =========================================
 
   const removeTable = async (table) => {
-  const confirmed = window.confirm(
-    `Remove Table ${table.tableNumber}?\n\n` +
-      `This will remove the table from your active floor plan. ` +
-      `Existing orders and order history will be preserved.`
-  );
-
-  if (!confirmed) return;
-
-  try {
-    setError("");
-
-    const response = await apiFetch(
-      `/api/tables/${table._id}`,
-      {
-        method: "DELETE",
-      }
+    const confirmed = window.confirm(
+      `Remove Table ${table.tableNumber}?\n\n` +
+        `This will remove the table from your active floor plan. ` +
+        `Existing orders and order history will be preserved.`
     );
 
-    const responseText = await response.text();
-
-    let data = {};
+    if (!confirmed) return;
 
     try {
-      data = JSON.parse(responseText);
-    } catch {
-      throw new Error(
-        `Server returned an unexpected response (${response.status})`
+      setError("");
+
+      const response = await apiFetch(
+        `/api/tables/${table._id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const responseText = await response.text();
+
+      let data = {};
+
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(
+          `Server returned an unexpected response (${response.status})`
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to remove table"
+        );
+      }
+
+      setTables((currentTables) =>
+        currentTables.filter(
+          (currentTable) =>
+            currentTable._id !== table._id
+        )
+      );
+    } catch (error) {
+      console.error(
+        "Failed to remove table:",
+        error
+      );
+
+      setError(
+        error.message || "Failed to remove table"
+      );
+
+      alert(
+        error.message || "Failed to remove table"
       );
     }
-
-    if (!response.ok) {
-      throw new Error(
-        data.message || "Failed to remove table"
-      );
-    }
-
-    setTables((currentTables) =>
-      currentTables.filter(
-        (currentTable) => currentTable._id !== table._id
-      )
-    );
-  } catch (error) {
-    console.error("Failed to remove table:", error);
-
-    setError(
-      error.message || "Failed to remove table"
-    );
-
-    alert(
-      error.message || "Failed to remove table"
-    );
-  }
-};
-
+  };
 
   // =========================================
   // DOWNLOAD QR
@@ -263,7 +272,10 @@ function TableQR() {
 
     const pngUrl = canvas
       .toDataURL("image/png")
-      .replace("image/png", "image/octet-stream");
+      .replace(
+        "image/png",
+        "image/octet-stream"
+      );
 
     const downloadLink =
       document.createElement("a");
@@ -319,11 +331,13 @@ function TableQR() {
       total: tables.length,
 
       available: tables.filter(
-        (table) => table.status === "Available"
+        (table) =>
+          table.status === "Available"
       ).length,
 
       occupied: tables.filter(
-        (table) => table.status === "Occupied"
+        (table) =>
+          table.status === "Occupied"
       ).length,
     };
   }, [tables]);
@@ -337,13 +351,15 @@ function TableQR() {
 
     if (activeFilter === "Available") {
       result = result.filter(
-        (table) => table.status === "Available"
+        (table) =>
+          table.status === "Available"
       );
     }
 
     if (activeFilter === "Occupied") {
       result = result.filter(
-        (table) => table.status === "Occupied"
+        (table) =>
+          table.status === "Occupied"
       );
     }
 
@@ -363,12 +379,21 @@ function TableQR() {
       );
     }
 
-    return result.sort(
-      (a, b) =>
-        Number(a.tableNumber) -
-        Number(b.tableNumber)
+    return result.sort((a, b) =>
+      String(a.tableNumber || "").localeCompare(
+        String(b.tableNumber || ""),
+        undefined,
+        {
+          numeric: true,
+          sensitivity: "base",
+        }
+      )
     );
-  }, [tables, activeFilter, searchQuery]);
+  }, [
+    tables,
+    activeFilter,
+    searchQuery,
+  ]);
 
   // =========================================
   // LOADING
@@ -406,9 +431,7 @@ function TableQR() {
 
       <main className="table-page-content">
 
-        {/* =====================================
-            HEADER
-        ===================================== */}
+        {/* HEADER */}
 
         <header className="table-qr-header">
           <div className="table-header-copy">
@@ -441,9 +464,7 @@ function TableQR() {
           </button>
         </header>
 
-        {/* =====================================
-            BUSINESS SNAPSHOT
-        ===================================== */}
+        {/* BUSINESS SNAPSHOT */}
 
         <section className="table-stats-grid">
 
@@ -454,7 +475,9 @@ function TableQR() {
                 ? "active"
                 : ""
             }`}
-            onClick={() => setActiveFilter("All")}
+            onClick={() =>
+              setActiveFilter("All")
+            }
           >
             <div className="table-stat-top">
               <span>Total Tables</span>
@@ -464,7 +487,9 @@ function TableQR() {
               </span>
             </div>
 
-            <strong>{tableCounts.total}</strong>
+            <strong>
+              {tableCounts.total}
+            </strong>
 
             <small>
               Restaurant floor capacity
@@ -490,7 +515,9 @@ function TableQR() {
               </span>
             </div>
 
-            <strong>{tableCounts.available}</strong>
+            <strong>
+              {tableCounts.available}
+            </strong>
 
             <small>
               Ready for new guests
@@ -516,7 +543,9 @@ function TableQR() {
               </span>
             </div>
 
-            <strong>{tableCounts.occupied}</strong>
+            <strong>
+              {tableCounts.occupied}
+            </strong>
 
             <small>
               Currently serving guests
@@ -525,9 +554,7 @@ function TableQR() {
 
         </section>
 
-        {/* =====================================
-            ERROR
-        ===================================== */}
+        {/* ERROR */}
 
         {error && (
           <div className="table-error">
@@ -552,13 +579,12 @@ function TableQR() {
           </div>
         )}
 
-        {/* =====================================
-            CREATE TABLE
-        ===================================== */}
+        {/* CREATE TABLE */}
 
         <section className="create-table-section">
 
           <div className="create-table-heading">
+
             <div>
               <span className="section-label">
                 TABLE SETUP
@@ -578,19 +604,20 @@ function TableQR() {
             <div className="create-table-badge">
               <span>+</span>
             </div>
+
           </div>
 
           <div className="create-table-form">
 
             <div className="table-input-wrapper">
+
               <span className="input-prefix">
                 #
               </span>
 
               <input
-                type="number"
-                min="1"
-                placeholder="Enter table number"
+                type="text"
+                placeholder="e.g. AC-1, NON-AC-1, VIP-1"
                 value={tableNumber}
                 onChange={(event) =>
                   setTableNumber(
@@ -603,6 +630,7 @@ function TableQR() {
                   }
                 }}
               />
+
             </div>
 
             <button
@@ -634,31 +662,36 @@ function TableQR() {
 
         </section>
 
-        {/* =====================================
-            TABLE LIST HEADER
-        ===================================== */}
+        {/* TABLE LIST */}
 
         <section className="tables-section">
 
           <div className="tables-toolbar">
 
             <div className="tables-toolbar-copy">
+
               <span className="section-label">
                 RESTAURANT FLOOR
               </span>
 
               <div className="tables-title-row">
-                <h2>Restaurant Tables</h2>
+
+                <h2>
+                  Restaurant Tables
+                </h2>
 
                 <span className="tables-count">
                   {filteredTables.length}
                 </span>
+
               </div>
+
             </div>
 
             <div className="tables-toolbar-actions">
 
               <div className="table-search">
+
                 <span className="search-icon">
                   ⌕
                 </span>
@@ -684,15 +717,14 @@ function TableQR() {
                     ×
                   </button>
                 )}
+
               </div>
 
             </div>
 
           </div>
 
-          {/* =====================================
-              FILTERS
-          ===================================== */}
+          {/* FILTERS */}
 
           <div className="table-filter-tabs">
 
@@ -708,7 +740,9 @@ function TableQR() {
               }
             >
               All
-              <span>{tableCounts.total}</span>
+              <span>
+                {tableCounts.total}
+              </span>
             </button>
 
             <button
@@ -724,7 +758,9 @@ function TableQR() {
             >
               <i className="filter-dot available" />
               Available
-              <span>{tableCounts.available}</span>
+              <span>
+                {tableCounts.available}
+              </span>
             </button>
 
             <button
@@ -740,17 +776,16 @@ function TableQR() {
             >
               <i className="filter-dot occupied" />
               Occupied
-              <span>{tableCounts.occupied}</span>
+              <span>
+                {tableCounts.occupied}
+              </span>
             </button>
 
           </div>
 
-          {/* =====================================
-              EMPTY STATE
-          ===================================== */}
+          {/* EMPTY STATE */}
 
           {filteredTables.length === 0 ? (
-
             <div className="no-tables">
 
               <div className="no-tables-icon">
@@ -782,12 +817,9 @@ function TableQR() {
               )}
 
             </div>
-
           ) : (
 
-            /* =====================================
-               TABLE GRID
-            ===================================== */
+            /* TABLE GRID */
 
             <div className="tables-grid">
 
@@ -810,9 +842,13 @@ function TableQR() {
                     <div className="table-card-header">
 
                       <div className="table-number-block">
-                        <span>TABLE</span>
+
+                        <span>
+                          TABLE
+                        </span>
 
                         <div className="table-number-row">
+
                           <h3>
                             {table.tableNumber}
                           </h3>
@@ -820,7 +856,9 @@ function TableQR() {
                           <span className="table-id">
                             {table.tableId}
                           </span>
+
                         </div>
+
                       </div>
 
                       <span
@@ -840,6 +878,7 @@ function TableQR() {
                     <div className="qr-container">
 
                       <div className="qr-heading">
+
                         <span>
                           CUSTOMER ORDERING
                         </span>
@@ -847,9 +886,11 @@ function TableQR() {
                         <strong>
                           Scan to open menu
                         </strong>
+
                       </div>
 
                       <div className="qr-inner">
+
                         <QRCodeCanvas
                           id={`qr-${table._id}`}
                           value={getTableUrl(table)}
@@ -857,6 +898,7 @@ function TableQR() {
                           level="H"
                           includeMargin
                         />
+
                       </div>
 
                       <p className="qr-caption">
@@ -872,7 +914,10 @@ function TableQR() {
                     <div className="table-url">
 
                       <div className="table-url-label">
-                        <span>ORDERING LINK</span>
+
+                        <span>
+                          ORDERING LINK
+                        </span>
 
                         <button
                           type="button"
@@ -885,6 +930,7 @@ function TableQR() {
                         >
                           Copy
                         </button>
+
                       </div>
 
                       <p>
@@ -922,10 +968,12 @@ function TableQR() {
                       <button
                         type="button"
                         className="remove-table-button"
-                        onClick={() => removeTable(table)}
+                        onClick={() =>
+                          removeTable(table)
+                        }
                       >
                         <span>🗑</span>
-                          Remove Table
+                        Remove Table
                       </button>
 
                     </div>
@@ -935,7 +983,6 @@ function TableQR() {
               })}
 
             </div>
-
           )}
 
         </section>

@@ -69,8 +69,10 @@ const billSchema = new mongoose.Schema(
     },
 
     tableNumber: {
-      type: Number,
+      // Supports numeric and custom labels such as AC-1 or VIP-2.
+      type: String,
       required: true,
+      trim: true,
     },
 
     // =========================================

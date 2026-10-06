@@ -6,6 +6,7 @@ import Table from "../models/Table.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import requireRole from "../middleware/roleMiddleware.js";
 import subscriptionMiddleware from "../middleware/subscriptionMiddleware.js";
+import Restaurant from "../models/Restaurant.js";
 
 const router = express.Router();
 
@@ -19,6 +20,18 @@ Customers do not have a JWT.
 
 This endpoint only exposes the minimum information
 required to load the restaurant menu.
+*/
+
+/*
+=========================================================
+GET TABLE BY TABLE ID
+PUBLIC CUSTOMER QR ROUTE
+=========================================================
+
+Customers do not have a JWT.
+
+This endpoint exposes only the information
+required to load the customer ordering page.
 */
 
 router.get(
@@ -44,11 +57,27 @@ router.get(
         });
       }
 
+      // ==========================================
+      // FIND RESTAURANT
+      // ==========================================
+
+      const restaurant = await Restaurant.findById(
+        table.restaurantId
+      ).select("name");
+
+      if (!restaurant) {
+        return res.status(404).json({
+          message:
+            "Restaurant linked to this table was not found",
+        });
+      }
+
       return res.json({
         table: {
           tableId: table.tableId,
           tableNumber: table.tableNumber,
           restaurantId: table.restaurantId,
+          restaurantName: restaurant.name,
         },
       });
     } catch (error) {
@@ -147,18 +176,24 @@ router.post(
         });
       }
 
-      const parsedTableNumber =
-        Number(tableNumber);
+      // Table labels are strings by design. This supports both
+      // numeric tables ("1", "2") and custom labels ("AC-1",
+      // "VIP-2", "ROOF-1", etc.).
+      const normalizedTableNumber = String(
+        tableNumber
+      )
+        .trim()
+        .toUpperCase();
 
-      if (
-        !Number.isInteger(
-          parsedTableNumber
-        ) ||
-        parsedTableNumber < 1
-      ) {
+      if (!normalizedTableNumber) {
         return res.status(400).json({
-          message:
-            "Table number must be a positive integer",
+          message: "Table number is required",
+        });
+      }
+
+      if (normalizedTableNumber.length > 50) {
+        return res.status(400).json({
+          message: "Table number must be 50 characters or less",
         });
       }
 
@@ -176,13 +211,13 @@ router.post(
         await Table.findOne({
           restaurantId,
           tableNumber:
-            parsedTableNumber,
+            normalizedTableNumber,
         });
 
       if (existingTable) {
         return res.status(400).json({
           message:
-            `Table ${parsedTableNumber} already exists in your restaurant`,
+            `Table ${normalizedTableNumber} already exists in your restaurant`,
         });
       }
 
@@ -193,7 +228,7 @@ router.post(
         await Table.create({
           restaurantId,
           tableNumber:
-            parsedTableNumber,
+            normalizedTableNumber,
           tableId,
           status: "Available",
         });

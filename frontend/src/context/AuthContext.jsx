@@ -16,9 +16,8 @@ export function AuthProvider({ children }) {
   // TOKEN
   // ==========================================
 
-  const [token, setToken] = useState(
-    () =>
-      localStorage.getItem("token")
+  const [token, setToken] = useState(() =>
+    localStorage.getItem("token")
   );
 
   // ==========================================
@@ -26,12 +25,17 @@ export function AuthProvider({ children }) {
   // ==========================================
 
   const [user, setUser] = useState(() => {
-    const savedUser =
-      localStorage.getItem("user");
+    try {
+      const savedUser =
+        localStorage.getItem("user");
 
-    return savedUser
-      ? JSON.parse(savedUser)
-      : null;
+      return savedUser
+        ? JSON.parse(savedUser)
+        : null;
+    } catch {
+      localStorage.removeItem("user");
+      return null;
+    }
   });
 
   // ==========================================
@@ -40,22 +44,26 @@ export function AuthProvider({ children }) {
 
   const [restaurant, setRestaurant] =
     useState(() => {
-      const savedRestaurant =
-        localStorage.getItem(
-          "restaurant"
-        );
+      try {
+        const savedRestaurant =
+          localStorage.getItem("restaurant");
 
-      return savedRestaurant
-        ? JSON.parse(savedRestaurant)
-        : null;
+        return savedRestaurant
+          ? JSON.parse(savedRestaurant)
+          : null;
+      } catch {
+        localStorage.removeItem("restaurant");
+        return null;
+      }
     });
 
   // ==========================================
   // AUTH LOADING
   // ==========================================
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(
+    () => Boolean(token)
+  );
 
   // ==========================================
   // LOGIN
@@ -89,9 +97,7 @@ export function AuthProvider({ children }) {
 
     setToken(newToken);
     setUser(newUser);
-    setRestaurant(
-      newRestaurant
-    );
+    setRestaurant(newRestaurant);
   };
 
   // ==========================================
@@ -101,13 +107,42 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem(
-      "restaurant"
-    );
+    localStorage.removeItem("restaurant");
 
     setToken(null);
     setUser(null);
     setRestaurant(null);
+    setLoading(false);
+  };
+
+  // ==========================================
+  // UPDATE SESSION
+  //
+  // IMPORTANT:
+  // Updates BOTH React state and localStorage.
+  // ==========================================
+
+  const updateSession = (
+    sessionUser,
+    sessionRestaurant
+  ) => {
+    if (sessionUser) {
+      localStorage.setItem(
+        "user",
+        JSON.stringify(sessionUser)
+      );
+
+      setUser(sessionUser);
+    }
+
+    if (sessionRestaurant) {
+      localStorage.setItem(
+        "restaurant",
+        JSON.stringify(sessionRestaurant)
+      );
+
+      setRestaurant(sessionRestaurant);
+    }
   };
 
   // ==========================================
@@ -140,9 +175,7 @@ export function AuthProvider({ children }) {
       // TOKEN INVALID / EXPIRED
       // ==========================================
 
-      if (
-        response.status === 401
-      ) {
+      if (response.status === 401) {
         logout();
         return null;
       }
@@ -157,34 +190,13 @@ export function AuthProvider({ children }) {
         await response.json();
 
       // ==========================================
-      // SAVE USER
+      // UPDATE SESSION
       // ==========================================
 
-      if (data.user) {
-        localStorage.setItem(
-          "user",
-          JSON.stringify(data.user)
-        );
-
-        setUser(data.user);
-      }
-
-      // ==========================================
-      // SAVE RESTAURANT
-      // ==========================================
-
-      if (data.restaurant) {
-        localStorage.setItem(
-          "restaurant",
-          JSON.stringify(
-            data.restaurant
-          )
-        );
-
-        setRestaurant(
-          data.restaurant
-        );
-      }
+      updateSession(
+        data.user,
+        data.restaurant
+      );
 
       return data;
     } catch (error) {
@@ -205,8 +217,10 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       refreshUser();
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
     }
 
@@ -214,7 +228,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   // ==========================================
-  // SUBSCRIPTION HELPERS
+  // SUBSCRIPTION
   // ==========================================
 
   const subscription =
@@ -227,24 +241,19 @@ export function AuthProvider({ children }) {
     Boolean(subscription);
 
   const isTrialing =
-    subscriptionStatus ===
-    "TRIALING";
+    subscriptionStatus === "TRIALING";
 
   const isActive =
-    subscriptionStatus ===
-    "ACTIVE";
+    subscriptionStatus === "ACTIVE";
 
   const isExpired =
-    subscriptionStatus ===
-    "EXPIRED";
+    subscriptionStatus === "EXPIRED";
 
   const isCancelled =
-    subscriptionStatus ===
-    "CANCELLED";
+    subscriptionStatus === "CANCELLED";
 
   const hasActiveAccess =
-    isTrialing ||
-    isActive;
+    isTrialing || isActive;
 
   // ==========================================
   // CONTEXT
@@ -260,6 +269,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
 
+        updateSession,
         refreshUser,
 
         loading,
@@ -285,9 +295,11 @@ export function AuthProvider({ children }) {
   );
 }
 
+// ==========================================
+// HOOK
+// ==========================================
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
-  return useContext(
-    AuthContext
-  );
+  return useContext(AuthContext);
 }

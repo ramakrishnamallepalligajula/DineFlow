@@ -349,87 +349,68 @@ router.get(
 
 
 
-      const topFoods =
+const topFoods =
+  await Order.aggregate([
+    {
+      $match: {
+        restaurantId,
+      },
+    },
 
-        await Order.aggregate([
+    {
+      $unwind: "$items",
+    },
 
-          {
+    {
+      $group: {
+        _id: "$items.name",
 
-            $match: {
-
-              restaurantId,
-
+        quantity: {
+          $sum: {
+            $convert: {
+              input: "$items.quantity",
+              to: "double",
+              onError: 0,
+              onNull: 0,
             },
-
           },
+        },
 
-
-
-          {
-
-            $unwind: "$items",
-
-          },
-
-
-
-          {
-
-            $group: {
-
-              _id: "$items.name",
-
-
-
-              quantity: {
-
-                $sum: "$items.quantity",
-
-              },
-
-
-
-              revenue: {
-
-                $sum: {
-
-                  $multiply: [
-
-                    "$items.price",
-
-                    "$items.quantity",
-
-                  ],
-
+        revenue: {
+          $sum: {
+            $multiply: [
+              {
+                $convert: {
+                  input: "$items.price",
+                  to: "double",
+                  onError: 0,
+                  onNull: 0,
                 },
-
               },
-
-            },
-
+              {
+                $convert: {
+                  input: "$items.quantity",
+                  to: "double",
+                  onError: 0,
+                  onNull: 0,
+                },
+              },
+            ],
           },
+        },
+      },
+    },
 
+    {
+      $sort: {
+        quantity: -1,
+      },
+    },
 
-
-          {
-
-            $sort: {
-
-              quantity: -1,
-
-            },
-
-          },
-
-
-
-          {
-
-            $limit: 5,
-
-          },
-
-        ]);
+    {
+      $limit: 5,
+    },
+  ]);
 
 
 

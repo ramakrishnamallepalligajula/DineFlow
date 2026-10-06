@@ -9,32 +9,23 @@ const subscriptionSchema = new mongoose.Schema(
       index: true,
     },
 
-    //plan: {
-     // type: String,
-    //  enum: ["basic", "standard", "premium"],
-    //  required: true,
-    //},
     plan: {
       type: String,
-      enum: ["dineflow"],
+      enum: ["BASIC", "PRO"],
       required: true,
     },
 
     billingCycle: {
       type: String,
-      enum: ["monthly", "yearly"],
+      enum: ["MONTHLY", "SIX_MONTHS", "TWELVE_MONTHS"],
       required: true,
     },
 
     status: {
       type: String,
-      enum: [
-        "pending",
-        "active",
-        "expired",
-        "cancelled",
-      ],
+      enum: ["pending", "active", "expired", "cancelled"],
       default: "pending",
+      index: true,
     },
 
     amount: {
@@ -66,12 +57,18 @@ const subscriptionSchema = new mongoose.Schema(
     orderId: {
       type: String,
       default: null,
+      index: true,
     },
   },
   {
     timestamps: true,
   }
 );
+
+subscriptionSchema.index({
+  restaurantId: 1,
+  createdAt: -1,
+});
 
 const Subscription = mongoose.model(
   "Subscription",

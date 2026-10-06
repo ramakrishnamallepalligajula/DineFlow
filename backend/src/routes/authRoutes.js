@@ -487,6 +487,7 @@ router.get(
   }
 );*/
 
+
 // =========================================================
 // GET CURRENT USER
 // =========================================================
@@ -496,9 +497,10 @@ router.get(
   authMiddleware,
   async (req, res) => {
     try {
-      const user = await User.findById(
-        req.user.userId
-      ).select("-passwordHash");
+      const user =
+        await User.findById(
+          req.user.userId
+        ).select("-passwordHash");
 
       if (!user) {
         return res.status(404).json({
@@ -518,10 +520,6 @@ router.get(
         });
       }
 
-      // ==========================================
-      // RESPONSE
-      // ==========================================
-
       return res.status(200).json({
         user: {
           id: user._id,
@@ -539,12 +537,31 @@ router.get(
           phone: restaurant.phone,
           address: restaurant.address,
 
-          // ==========================================
-          // SUBSCRIPTION
-          // ==========================================
-
           subscription:
-            restaurant.subscription || null,
+            restaurant.subscription
+              ? {
+                  plan:
+                    restaurant.subscription.plan,
+
+                  billingPeriod:
+                    restaurant.subscription.billingPeriod,
+
+                  status:
+                    restaurant.subscription.status,
+
+                  trialStartedAt:
+                    restaurant.subscription.trialStartedAt,
+
+                  trialEndsAt:
+                    restaurant.subscription.trialEndsAt,
+
+                  currentPeriodStart:
+                    restaurant.subscription.currentPeriodStart,
+
+                  currentPeriodEnd:
+                    restaurant.subscription.currentPeriodEnd,
+                }
+              : null,
         },
       });
     } catch (error) {
@@ -560,6 +577,7 @@ router.get(
     }
   }
 );
+
 
 
 export default router;

@@ -240,15 +240,21 @@ router.post(
       // CREATE TRIAL DATES
       // ==========================================
 
-      const trialStartedAt = new Date();
+      /*const trialStartedAt = new Date();
 
       const trialEndsAt = new Date(
         trialStartedAt
       );
 
       trialEndsAt.setDate(
-        trialEndsAt.getDate() + 7
-      );
+        trialEndsAt.getDate() + 3
+      );*/
+
+      const trialStartedAt = new Date();
+
+      const trialEndsAt = new Date(
+          Date.now() + 3 * 24 * 60 * 60 * 1000
+        );
 
       // ==========================================
       // SAVE SUBSCRIPTION

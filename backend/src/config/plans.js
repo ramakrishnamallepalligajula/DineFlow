@@ -1,53 +1,27 @@
-/*const plans = {
-  basic: {
+const plans = {
+  BASIC: {
     name: "Basic",
-
     monthly: {
-      amount: 999,
+      amount: 899,
     },
-
+    sixMonths: {
+      amount: 4499,
+    },
     yearly: {
       amount: 7999,
     },
   },
 
-  standard: {
-    name: "Standard",
-
+  PRO: {
+    name: "Pro",
     monthly: {
       amount: 1499,
     },
-
+    sixMonths: {
+      amount: 7499,
+    },
     yearly: {
-      amount: 11999,
-    },
-  },
-
-  premium: {
-    name: "Premium",
-
-    monthly: {
-      amount: 1999,
-    },
-
-    yearly: {
-      amount: 17999,
-    },
-  },
-};
-
-export default plans;*/
-
-const plans = {
-  dineflow: {
-    name: "DineFlow",
-
-    monthly: {
-      amount: 0,
-    },
-
-    yearly: {
-      amount: 9999,
+      amount: 14999,
     },
   },
 };
