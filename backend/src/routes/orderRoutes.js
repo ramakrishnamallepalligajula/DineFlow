@@ -667,79 +667,52 @@ if (
 // GST CALCULATION
 // ===================================================
 
-const restaurant = await Restaurant.findById(
-  session.restaurantId
-).select("taxSettings");
+// DineFlow fixed GST:
+// Total GST = 5%
+// CGST = 2.5%
+// SGST = 2.5%
+//
+// IMPORTANT:
+// Customer-facing order total already includes GST.
 
-const gstEnabled =
-  restaurant?.taxSettings?.gstEnabled === true;
+const GST_RATE = 5;
+const CGST_RATE = 2.5;
+const SGST_RATE = 2.5;
 
-const configuredGstRate = Number(
-  restaurant?.taxSettings?.gstRate ?? 0
-);
-
-const gstRate =
-  gstEnabled &&
-  Number.isFinite(configuredGstRate) &&
-  configuredGstRate >= 0
-    ? configuredGstRate
-    : 0;
-
-// Customer-facing total already includes GST.
-// Example:
-// ₹220 at 5% GST
-// Taxable value = 220 / 1.05 = ₹209.52
-
+// Final amount customer sees/pays
 const total = Number(
   Number(totalPrice).toFixed(2)
 );
 
-let subtotal = total;
-let cgst = 0;
-let sgst = 0;
-let tax = 0;
+// Reverse-calculate taxable subtotal
+const subtotal = Number(
+  (total / (1 + GST_RATE / 100)).toFixed(2)
+);
 
-if (gstRate > 0) {
-  subtotal = Number(
-    (total / (1 + gstRate / 100)).toFixed(2)
-  );
+// GST amount must reconcile exactly with final total
+const tax = Number(
+  (total - subtotal).toFixed(2)
+);
 
-  const cgstRate = gstRate / 2;
-  const sgstRate = gstRate / 2;
+// Split GST equally
+const cgst = Number(
+  (tax / 2).toFixed(2)
+);
 
-  cgst = Number(
-    ((subtotal * cgstRate) / 100).toFixed(2)
-  );
-
-  sgst = Number(
-    ((subtotal * sgstRate) / 100).toFixed(2)
-  );
-
-  tax = Number(
-    (cgst + sgst).toFixed(2)
-  );
-}
+const sgst = Number(
+  (tax - cgst).toFixed(2)
+);
 
 console.log("🧾 GST calculation:", {
-  gstEnabled,
-  gstRate,
+  gstRate: GST_RATE,
+  cgstRate: CGST_RATE,
+  sgstRate: SGST_RATE,
   subtotal,
   cgst,
   sgst,
   tax,
   total,
 });
-
-console.log("🧾 GST calculation:", {
-  gstEnabled,
-  gstRate,
-  subtotal,
-  cgst,
-  sgst,
-  tax,
-  total,
-});
-
 
 // ===================================================
 // SAVE BILL TO MONGODB
@@ -768,7 +741,7 @@ const bill = await Bill.create({
 
   subtotal,
 
-  taxRate: gstRate,
+  taxRate: GST_RATE,
 
   tax,
 
@@ -877,7 +850,7 @@ console.log("🧾 Bill saved to MongoDB:", bill._id);
 
 subtotal,
 
-taxRate: gstRate,
+taxRate: GST_RATE,
 
 tax,
 

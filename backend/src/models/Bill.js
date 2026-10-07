@@ -69,7 +69,10 @@ const billSchema = new mongoose.Schema(
     },
 
     tableNumber: {
-      // Supports numeric and custom labels such as AC-1 or VIP-2.
+      // Supports values such as:
+      // 1
+      // AC-1
+      // VIP-2
       type: String,
       required: true,
       trim: true,
@@ -113,7 +116,7 @@ const billSchema = new mongoose.Schema(
     // BILL CALCULATION
     // =========================================
 
-    // Amount before GST
+    // GST-exclusive taxable amount
     subtotal: {
       type: Number,
       required: true,
@@ -124,24 +127,16 @@ const billSchema = new mongoose.Schema(
     // GST SNAPSHOT
     // =========================================
 
-    // GST rate that was active when this bill
-    // was created.
-    //
-    // IMPORTANT:
-    // We store this on the bill so changing the
-    // restaurant GST setting later does NOT
-    // change old bills.
+    // 5% total GST
+    // 2.5% CGST + 2.5% SGST
     taxRate: {
       type: Number,
       required: true,
       min: 0,
-      default: 0,
+      default: 5,
     },
 
     // Total GST amount
-    //
-    // This is kept as "tax" for compatibility
-    // with the existing billing system.
     tax: {
       type: Number,
       required: true,
@@ -149,7 +144,7 @@ const billSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // CGST amount
+    // CGST = 2.5%
     cgst: {
       type: Number,
       required: true,
@@ -157,7 +152,7 @@ const billSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // SGST amount
+    // SGST = 2.5%
     sgst: {
       type: Number,
       required: true,
@@ -169,7 +164,7 @@ const billSchema = new mongoose.Schema(
     // FINAL BILL TOTAL
     // =========================================
 
-    // subtotal + GST
+    // GST-inclusive final amount
     total: {
       type: Number,
       required: true,
@@ -192,6 +187,10 @@ const billSchema = new mongoose.Schema(
       index: true,
     },
 
+    // =========================================
+    // PAYMENT
+    // =========================================
+
     paymentStatus: {
       type: String,
       enum: [
@@ -207,6 +206,7 @@ const billSchema = new mongoose.Schema(
       type: String,
       enum: [
         "CASH",
+        "ONLINE",
         "UPI",
         "CARD",
         "OTHER",
@@ -214,18 +214,22 @@ const billSchema = new mongoose.Schema(
       default: null,
     },
 
-    // =========================================
-    // PRINTING
-    // =========================================
-    printedAt: {
+    // Razorpay payment/order reference
+    paymentReference: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    paidAt: {
       type: Date,
       default: null,
     },
 
     // =========================================
-    // PAYMENT
+    // PRINTING
     // =========================================
-    paidAt: {
+    printedAt: {
       type: Date,
       default: null,
     },
