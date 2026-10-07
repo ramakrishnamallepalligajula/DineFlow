@@ -356,6 +356,9 @@ export async function createBillingPrintJob({
 
     totalPrice:
       bill.total,
+      
+    paymentMethod: 
+      bill.paymentMethod,
   };
 
 

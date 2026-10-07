@@ -188,6 +188,18 @@ const printPayloadSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    paymentMethod: {
+  type: String,
+  enum: [
+    "CASH",
+    "ONLINE",
+    "UPI",
+    "CARD",
+    "OTHER",
+    null,
+  ],
+  default: null,
+},
   },
 
   {
