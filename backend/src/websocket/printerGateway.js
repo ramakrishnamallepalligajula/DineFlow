@@ -4,7 +4,6 @@ import Printer from "../models/Printer.js";
 
 import PrintJob from "../models/PrintJob.js";
 
-import jwt from "jsonwebtoken";
 
 import { authenticateDevice } from "../services/printerAuthService.js";
 
@@ -40,321 +39,78 @@ export const setupPrinterGateway = (io) => {
 
   // ========================================
 
+ns.use(async (socket, next) => {
+
+  console.log("");
+  console.log("🔐 Printer namespace authentication request");
+  console.log("Socket ID:", socket.id);
+
+  try {
+
+    const {
+      deviceId,
+      deviceSecret,
+    } = socket.handshake.auth || {};
 
 
-  ns.use(async (socket, next) => {
+    console.log(
+      "Device ID:",
+      deviceId || "MISSING"
+    );
 
-    console.log("");
+    console.log(
+      "Device Secret:",
+      deviceSecret
+        ? "PROVIDED"
+        : "MISSING"
+    );
 
-    console.log("🔐 Printer namespace authentication request");
 
-    console.log("Socket ID:", socket.id);
+    // ========================================
+    // VALIDATE CREDENTIALS
+    // ========================================
+
+    if (
+      !deviceId ||
+      !deviceSecret
+    ) {
+
+      console.log(
+        "❌ Missing printer authentication credentials"
+      );
+
+      return next(
+        new Error(
+          "Printer authentication credentials missing"
+        )
+      );
+
+    }
 
 
+    // ========================================
+    // AUTHENTICATE PRINTER DEVICE
+    // ========================================
 
-    try {
-
-      const {
-        token,
+    const device =
+      await authenticateDevice(
         deviceId,
-        deviceSecret,
-      } = socket.handshake.auth || {};
-
-
-
-      console.log(
-        "Device ID:",
-        deviceId || "MISSING"
-      );
-
-      console.log(
-        "Device Secret:",
         deviceSecret
-          ? "PROVIDED"
-          : "MISSING"
-      );
-
-      console.log(
-        "Admin Token:",
-        token
-          ? "PROVIDED"
-          : "MISSING"
       );
 
 
-
-      // ========================================
-
-      // VALIDATE CREDENTIALS
-
-      // ========================================
-
-
-
-      if (
-        !token ||
-        !deviceId ||
-        !deviceSecret
-      ) {
-
-        console.log(
-          "❌ Missing printer authentication credentials"
-        );
-
-        return next(
-          new Error(
-            "Printer authentication credentials missing"
-          )
-        );
-
-      }
-
-
-
-      // ========================================
-
-      // AUTHENTICATE ADMIN JWT
-
-      // ========================================
-
-
-
-      let decoded;
-
-
-
-      try {
-
-        decoded = jwt.verify(
-          token,
-          process.env.JWT_SECRET
-        );
-
-      } catch (error) {
-
-        console.log(
-          "❌ Invalid or expired admin token"
-        );
-
-        return next(
-          new Error(
-            "Invalid or expired admin login"
-          )
-        );
-
-      }
-
-
+    if (!device) {
 
       console.log(
-        "✅ Admin JWT authenticated"
-      );
-
-      console.log(
-        "Admin User ID:",
-        decoded.userId
-      );
-
-      console.log(
-        "Admin Restaurant ID:",
-        decoded.restaurantId
-      );
-
-
-
-      // ========================================
-
-      // ONLY ADMIN CAN CONNECT PRINTER AGENT
-
-      // ========================================
-
-
-
-      if (decoded.role !== "admin") {
-
-        console.log(
-          "❌ Printer Agent login requires admin role"
-        );
-
-        return next(
-          new Error(
-            "Only restaurant admin can connect printer agent"
-          )
-        );
-
-      }
-
-
-
-      if (!decoded.restaurantId) {
-
-        console.log(
-          "❌ JWT does not contain restaurantId"
-        );
-
-        return next(
-          new Error(
-            "Restaurant information missing from login"
-          )
-        );
-
-      }
-
-
-
-      // ========================================
-
-      // AUTHENTICATE PRINTER DEVICE
-
-      // ========================================
-
-
-
-      const device =
-        await authenticateDevice(
-          deviceId,
-          deviceSecret
-        );
-
-
-
-      if (!device) {
-
-        console.log(
-          "❌ Printer device authentication failed"
-        );
-
-        console.log(
-          "Device ID:",
-          deviceId
-        );
-
-        return next(
-          new Error(
-            "Printer device authentication failed"
-          )
-        );
-
-      }
-
-
-
-      console.log(
-        "✅ Printer device authenticated"
+        "❌ Printer device authentication failed"
       );
 
       console.log(
         "Device ID:",
-        device._id.toString()
+        deviceId
       );
 
-      console.log(
-        "Device Restaurant ID:",
-        device.restaurantId
-      );
-
-
-
-      // ========================================
-
-      // VERIFY SAME RESTAURANT
-
-      // ========================================
-
-
-
-      if (
-        String(device.restaurantId) !==
-        String(decoded.restaurantId)
-      ) {
-
-        console.log(
-          "❌ RESTAURANT MISMATCH"
-        );
-
-        console.log(
-          "Admin Restaurant:",
-          decoded.restaurantId
-        );
-
-        console.log(
-          "Device Restaurant:",
-          device.restaurantId
-        );
-
-        return next(
-          new Error(
-            "Printer device belongs to another restaurant"
-          )
-        );
-
-      }
-
-
-
-      // ========================================
-
-      // SUCCESSFUL AUTHENTICATION
-
-      // ========================================
-
-
-
-      console.log(
-        "========================================"
-      );
-
-      console.log(
-        "🟢 PRINTER AGENT AUTHENTICATED"
-      );
-
-      console.log(
-        "Restaurant:",
-        decoded.restaurantId
-      );
-
-      console.log(
-        "Device:",
-        device._id.toString()
-      );
-
-      console.log(
-        "========================================"
-      );
-
-
-
-      socket.data.device = device;
-
-
-
-      socket.data.user = {
-
-        userId: decoded.userId,
-
-        role: decoded.role,
-
-        restaurantId: decoded.restaurantId,
-
-      };
-
-
-
-      next();
-
-
-
-    } catch (error) {
-
-      console.error(
-        "❌ Printer authentication error:"
-      );
-
-      console.error(error);
-
-
-
-      next(
+      return next(
         new Error(
           "Printer device authentication failed"
         )
@@ -362,8 +118,78 @@ export const setupPrinterGateway = (io) => {
 
     }
 
-  });
 
+    console.log(
+      "✅ Printer device authenticated"
+    );
+
+    console.log(
+      "Device ID:",
+      device._id.toString()
+    );
+
+    console.log(
+      "Device Restaurant ID:",
+      device.restaurantId
+    );
+
+
+    // ========================================
+    // SUCCESSFUL AUTHENTICATION
+    // ========================================
+
+    console.log(
+      "========================================"
+    );
+
+    console.log(
+      "🟢 PRINTER AGENT AUTHENTICATED"
+    );
+
+    console.log(
+      "Restaurant:",
+      device.restaurantId
+    );
+
+    console.log(
+      "Device:",
+      device._id.toString()
+    );
+
+    console.log(
+      "========================================"
+    );
+
+
+    socket.data.device = device;
+
+
+    socket.data.user = {
+      role: "printer-agent",
+      restaurantId: device.restaurantId,
+    };
+
+
+    next();
+
+
+  } catch (error) {
+
+    console.error(
+      "❌ Printer authentication error:"
+    );
+
+    console.error(error);
+
+    next(
+      new Error(
+        "Printer device authentication failed"
+      )
+    );
+
+  }
+
+});
 
 
   // ========================================
