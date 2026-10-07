@@ -9,6 +9,8 @@ import { authenticateDevice } from "../services/printerAuthService.js";
 
 import { deliverPendingJobs } from "../services/printJobService.js";
 
+import Bill from "../models/Bill.js";
+
 
 
 export const setupPrinterGateway = (io) => {
@@ -529,121 +531,166 @@ ns.use(async (socket, next) => {
       }
 
     );
+  /* ========================================
+   JOB PRINTED
+======================================== */
 
+socket.on(
+  "printer:job-printed",
+  async ({ jobId } = {}) => {
 
+    try {
 
-    // ========================================
+      if (!jobId) {
 
-    // JOB PRINTED
+        console.log(
+          "⚠️ printer:job-printed called without jobId"
+        );
 
-    // ========================================
-
-
-
-    socket.on(
-
-      "printer:job-printed",
-
-      async ({ jobId } = {}) => {
-
-        try {
-
-          if (!jobId) {
-
-            console.log(
-
-              "⚠️ printer:job-printed called without jobId"
-
-            );
-
-            return;
-
-          }
-
-
-
-          console.log(
-
-            "✅ Printer successfully printed job:",
-
-            jobId
-
-          );
-
-
-
-          await PrintJob.findOneAndUpdate(
-
-            {
-
-              _id: jobId,
-
-              deviceId: socket.data.device._id,
-
-              restaurantId:
-                socket.data.device.restaurantId,
-
-              status: {
-
-                $in: [
-
-                  "PENDING",
-
-                  "PROCESSING",
-
-                ],
-
-              },
-
-            },
-
-            {
-
-              $set: {
-
-                status: "PRINTED",
-
-                printedAt: new Date(),
-
-                error: {
-
-                  code: null,
-
-                  message: null,
-
-                },
-
-              },
-
-            }
-
-          );
-
-
-
-          console.log(
-
-            "🟢 Print job marked PRINTED:",
-
-            jobId
-
-          );
-
-        } catch (error) {
-
-          console.error(
-
-            "❌ printer:job-printed error:",
-
-            error
-
-          );
-
-        }
-
+        return;
       }
 
-    );
+
+      console.log("");
+      console.log(
+        "========================================"
+      );
+
+      console.log(
+        "✅ PRINTER REPORTED SUCCESS"
+      );
+
+      console.log(
+        "Job ID:",
+        jobId
+      );
+
+
+      /* ------------------------------------
+         UPDATE PRINT JOB
+      ------------------------------------ */
+
+      const job =
+        await PrintJob.findOneAndUpdate(
+          {
+            _id:
+              jobId,
+
+            deviceId:
+              socket.data.device._id,
+
+            restaurantId:
+              socket.data.device.restaurantId,
+
+            status: {
+              $in: [
+                "PENDING",
+                "PROCESSING",
+              ],
+            },
+          },
+
+          {
+            $set: {
+
+              status:
+                "PRINTED",
+
+              printedAt:
+                new Date(),
+
+              error: {
+                code:
+                  null,
+
+                message:
+                  null,
+              },
+            },
+          },
+
+          {
+            new:
+              true,
+          }
+        );
+
+
+      /* ------------------------------------
+         JOB NOT FOUND
+      ------------------------------------ */
+
+      if (!job) {
+
+        console.log(
+          "⚠️ Print job not found or already completed:",
+          jobId
+        );
+
+        console.log(
+          "========================================"
+        );
+
+        return;
+      }
+
+
+      console.log(
+        "🟢 Print job marked PRINTED:",
+        jobId
+      );
+
+
+      /* ------------------------------------
+         UPDATE BILL
+      ------------------------------------ */
+
+      if (
+        job.type ===
+        "BILLING_RECEIPT"
+      ) {
+
+        await Bill.findOneAndUpdate(
+          {
+            _id:
+              job.orderId,
+
+            restaurantId:
+              socket.data.device.restaurantId,
+          },
+
+          {
+            $set: {
+              printedAt:
+                new Date(),
+            },
+          }
+        );
+
+
+        console.log(
+          "🧾 Bill marked as PRINTED:",
+          job.orderId.toString()
+        );
+      }
+
+
+      console.log(
+        "========================================"
+      );
+
+
+    } catch (error) {
+
+      console.error(
+        "❌ printer:job-printed error:",
+        error
+      );
+
+    }
+
+  }
+);
 
 
 

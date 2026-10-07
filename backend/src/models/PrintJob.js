@@ -1,21 +1,54 @@
 import mongoose from "mongoose";
 
+
+/* =========================================================
+   PRINT ITEM
+========================================================= */
+
 const printItemSchema = new mongoose.Schema(
   {
-    id: { type: String, required: true },
-    name: { type: String, required: true },
-    price: { type: Number, required: true },
-    category: { type: String, default: "" },
-    quantity: { type: Number, required: true, min: 1 },
+    id: {
+      type: String,
+      required: true,
+    },
+
+    name: {
+      type: String,
+      required: true,
+    },
+
+    price: {
+      type: Number,
+      required: true,
+    },
+
+    category: {
+      type: String,
+      default: "",
+    },
+
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
+
+
+/* =========================================================
+   PRINT PAYLOAD
+========================================================= */
 
 const printPayloadSchema = new mongoose.Schema(
   {
-    // ==============================
-    // COMMON / KITCHEN ORDER FIELDS
-    // ==============================
+
+    /* =====================================================
+       COMMON / KITCHEN
+    ===================================================== */
 
     orderNumber: {
       type: Number,
@@ -30,7 +63,11 @@ const printPayloadSchema = new mongoose.Schema(
 
     orderType: {
       type: String,
-      enum: ["initial", "additional", null],
+      enum: [
+        "initial",
+        "additional",
+        null,
+      ],
       default: null,
     },
 
@@ -40,7 +77,9 @@ const printPayloadSchema = new mongoose.Schema(
     },
 
     items: {
-      type: [printItemSchema],
+      type: [
+        printItemSchema,
+      ],
       default: [],
     },
 
@@ -56,9 +95,10 @@ const printPayloadSchema = new mongoose.Schema(
       min: 0,
     },
 
-    // ==============================
-    // BILLING RECEIPT FIELDS
-    // ==============================
+
+    /* =====================================================
+       BILLING
+    ===================================================== */
 
     sessionId: {
       type: String,
@@ -68,6 +108,21 @@ const printPayloadSchema = new mongoose.Schema(
     restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Restaurant",
+      default: null,
+    },
+
+    restaurantName: {
+      type: String,
+      default: "",
+    },
+
+    gstin: {
+      type: String,
+      default: "",
+    },
+
+    billDate: {
+      type: Date,
       default: null,
     },
 
@@ -134,8 +189,16 @@ const printPayloadSchema = new mongoose.Schema(
       min: 0,
     },
   },
-  { _id: false }
+
+  {
+    _id: false,
+  }
 );
+
+
+/* =========================================================
+   PRINT JOB
+========================================================= */
 
 const printJobSchema = new mongoose.Schema(
   {
@@ -146,6 +209,11 @@ const printJobSchema = new mongoose.Schema(
       index: true,
     },
 
+    /*
+     * For kitchen jobs this references Order._id.
+     *
+     * For billing jobs this references Bill._id.
+     */
     orderId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
@@ -168,13 +236,24 @@ const printJobSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["KITCHEN_ORDER", "BAR_ORDER", "BILL", "RECEIPT", "BILLING_RECEIPT"],
+
+      enum: [
+        "KITCHEN_ORDER",
+        "BAR_ORDER",
+        "BILL",
+        "RECEIPT",
+        "BILLING_RECEIPT",
+      ],
+
       required: true,
-      default: "KITCHEN_ORDER",
+
+      default:
+        "KITCHEN_ORDER",
     },
 
     status: {
       type: String,
+
       enum: [
         "PENDING",
         "PROCESSING",
@@ -182,45 +261,65 @@ const printJobSchema = new mongoose.Schema(
         "FAILED",
         "CANCELLED",
       ],
-      default: "PENDING",
+
+      default:
+        "PENDING",
+
       index: true,
     },
 
     attempts: {
       type: Number,
+
       default: 0,
+
       min: 0,
     },
 
-    // Immutable snapshot of exactly what should be printed.
+    /*
+     * Immutable snapshot of what must be printed.
+     */
     payload: {
-      type: printPayloadSchema,
-      required: true,
+      type:
+        printPayloadSchema,
+
+      required:
+        true,
     },
 
     messageId: {
       type: String,
-      default: null,
+
+      default:
+        null,
     },
 
     processingAt: {
       type: Date,
-      default: null,
+
+      default:
+        null,
     },
 
     printedAt: {
       type: Date,
-      default: null,
+
+      default:
+        null,
     },
 
     failedAt: {
       type: Date,
-      default: null,
+
+      default:
+        null,
     },
 
     lastAttemptAt: {
       type: Date,
-      default: null,
+
+      default:
+        null,
     },
 
     error: {
@@ -228,19 +327,25 @@ const printJobSchema = new mongoose.Schema(
         type: String,
         default: null,
       },
+
       message: {
         type: String,
         default: null,
       },
     },
   },
+
   {
-    timestamps: true,
+    timestamps:
+      true,
   }
 );
 
-// Primary idempotency guard: the same order cannot create the same
-// print type twice for the same printer.
+
+/* =========================================================
+   IDEMPOTENCY
+========================================================= */
+
 printJobSchema.index(
   {
     restaurantId: 1,
@@ -248,10 +353,16 @@ printJobSchema.index(
     printerId: 1,
     type: 1,
   },
-  { unique: true }
+  {
+    unique: true,
+  }
 );
 
-// Efficient queue queries for a device.
+
+/* =========================================================
+   QUEUE LOOKUP
+========================================================= */
+
 printJobSchema.index({
   restaurantId: 1,
   deviceId: 1,
@@ -259,6 +370,12 @@ printJobSchema.index({
   createdAt: 1,
 });
 
-const PrintJob = mongoose.model("PrintJob", printJobSchema);
+
+const PrintJob =
+  mongoose.model(
+    "PrintJob",
+    printJobSchema
+  );
+
 
 export default PrintJob;

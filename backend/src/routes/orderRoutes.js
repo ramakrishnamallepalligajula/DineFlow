@@ -944,8 +944,9 @@ try {
       printJob._id
     );
 
-    bill.printedAt = new Date();
-    await bill.save();
+    console.log(
+    "🖨️ Billing print job is waiting for printer confirmation."
+  );
   } else {
     console.log(
       "⚠️ No billing printer configured."
