@@ -78,7 +78,7 @@ const orderRoutes = (io) => {
             "Table is not linked to a restaurant",
         });
       }
-      // =====================================================
+// =====================================================
 // CHECK RESTAURANT SUBSCRIPTION
 // =====================================================
 
@@ -658,10 +658,9 @@ if (
           }
         }
 
-        const finalItems =
-          Array.from(
-            combinedItems.values()
-          );
+const finalItems =
+    Array.from(
+    combinedItems.values());
 
 // ===================================================
 // GST CALCULATION
@@ -833,37 +832,24 @@ console.log("🧾 Bill saved to MongoDB:", bill._id);
           items: finalItems,
 
           totalItems,
-
           totalQuantity:
-            finalItems.reduce(
-              (sum, item) =>
-                sum + item.quantity,
-              0
-            ),
+              finalItems.reduce(
+                    (sum, item) =>
+                  sum + item.quantity,0),
 
-          totalQuantity:
-  finalItems.reduce(
-    (sum, item) =>
-      sum + item.quantity,
-    0
-  ),
+          subtotal,
 
-subtotal,
+          taxRate: GST_RATE,
 
-taxRate: GST_RATE,
+          tax,
 
-tax,
+          cgst,
 
-cgst,
+          sgst,
 
-sgst,
+          total,
 
-total,
-
-totalPrice: total,
-
-status:
-  "bill_requested",
+          totalPrice: total,
 
           status:
             "bill_requested",
