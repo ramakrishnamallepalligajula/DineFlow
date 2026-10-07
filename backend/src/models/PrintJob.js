@@ -72,7 +72,7 @@ const printPayloadSchema = new mongoose.Schema(
     },
 
     tableNumber: {
-      type: Number,
+      type: String,
       default: null,
     },
 
