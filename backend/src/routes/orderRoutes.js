@@ -884,7 +884,7 @@ console.log("🧾 Bill saved to MongoDB:", bill._id);
           "✅ bill-requested event emitted"
         );
 
-        // ===================================================
+// ===================================================
 // CREATE BILLING PRINT JOB
 // ===================================================
 
@@ -893,7 +893,7 @@ try {
 
   const printJob = await createBillingPrintJob({
     bill,
-    restaurant,
+    Restaurant,
     io,
   });
 
