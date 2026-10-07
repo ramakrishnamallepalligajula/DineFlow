@@ -543,3 +543,57 @@
   }
 
 }
+
+/* =========================================
+   PRINTER MANAGEMENT PAGE
+========================================= */
+
+.printer-management-page {
+  min-height: 100vh;
+  background: #f7f2ea;
+}
+
+.printer-management-main {
+  margin-left: 250px;
+  min-height: 100vh;
+  padding: 28px 24px;
+  box-sizing: border-box;
+}
+
+
+/* =========================================
+   PRINTER MANAGEMENT CARD
+========================================= */
+
+.printer-management-main section {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+
+/* =========================================
+   TABLET
+========================================= */
+
+@media (max-width: 1000px) {
+  .printer-management-main {
+    margin-left: 220px;
+    padding: 24px 18px;
+  }
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 700px) {
+  .printer-management-main {
+    margin-left: 0;
+    padding: 18px 12px;
+  }
+
+  .printer-management-page {
+    background: #f7f2ea;
+  }
+}

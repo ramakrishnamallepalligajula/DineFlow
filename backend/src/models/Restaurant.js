@@ -15,12 +15,6 @@ const restaurantSchema = new mongoose.Schema(
       trim: true,
     },
 
-    phone: {
-      type: String,
-      default: "",
-      trim: true,
-    },
-
     address: {
       type: String,
       default: "",
@@ -34,56 +28,56 @@ const restaurantSchema = new mongoose.Schema(
     },
 
     // =========================================
-   // SUBSCRIPTION
-  // =========================================
-subscription: {
-  plan: {
-    type: String,
-    enum: ["BASIC", "PRO"],
-    default: null,
-  },
+    // SUBSCRIPTION
+    // =========================================
+    subscription: {
+      plan: {
+        type: String,
+        enum: ["BASIC", "PRO"],
+        default: null,
+      },
 
-  billingPeriod: {
-    type: String,
-    enum: [
-      "MONTHLY",
-      "SIX_MONTHS",
-      "TWELVE_MONTHS",
-    ],
-    default: null,
-  },
+      billingPeriod: {
+        type: String,
+        enum: [
+          "MONTHLY",
+          "SIX_MONTHS",
+          "TWELVE_MONTHS",
+        ],
+        default: null,
+      },
 
-  status: {
-    type: String,
-    enum: [
-      "TRIALING",
-      "ACTIVE",
-      "EXPIRED",
-      "CANCELLED",
-    ],
-    default: "TRIALING",
-  },
+      status: {
+        type: String,
+        enum: [
+          "TRIALING",
+          "ACTIVE",
+          "EXPIRED",
+          "CANCELLED",
+        ],
+        default: "TRIALING",
+      },
 
-  trialStartedAt: {
-    type: Date,
-    default: null,
-  },
+      trialStartedAt: {
+        type: Date,
+        default: null,
+      },
 
-  trialEndsAt: {
-    type: Date,
-    default: null,
-  },
+      trialEndsAt: {
+        type: Date,
+        default: null,
+      },
 
-  currentPeriodStart: {
-    type: Date,
-    default: null,
-  },
+      currentPeriodStart: {
+        type: Date,
+        default: null,
+      },
 
-  currentPeriodEnd: {
-    type: Date,
-    default: null,
-  },
-},
+      currentPeriodEnd: {
+        type: Date,
+        default: null,
+      },
+    },
 
     // =========================================
     // GST / TAX SETTINGS
@@ -99,11 +93,58 @@ subscription: {
         default: 5,
         min: 0,
       },
+
       gstin: {
         type: String,
         default: "",
         trim: true,
         uppercase: true,
+      },
+    },
+
+    // =========================================
+    // PAYMENT SETTINGS
+    // =========================================
+    paymentSettings: {
+      // Customer online payments can only be
+      // enabled after Razorpay onboarding is ACTIVE.
+      onlinePaymentsEnabled: {
+        type: Boolean,
+        default: false,
+      },
+
+      // Payment provider
+      provider: {
+        type: String,
+        enum: ["RAZORPAY"],
+        default: null,
+      },
+
+      // Razorpay onboarding / account status
+      onboardingStatus: {
+        type: String,
+        enum: [
+          "NOT_STARTED",
+          "PENDING",
+          "ACTIVE",
+          "REJECTED",
+          "SUSPENDED",
+        ],
+        default: "NOT_STARTED",
+      },
+
+      // Razorpay linked/merchant account ID.
+      // Do NOT store bank account number here.
+      razorpayAccountId: {
+        type: String,
+        default: null,
+        trim: true,
+      },
+
+      // When Razorpay onboarding became active
+      activatedAt: {
+        type: Date,
+        default: null,
       },
     },
   },
@@ -112,6 +153,9 @@ subscription: {
   }
 );
 
-const Restaurant = mongoose.model("Restaurant", restaurantSchema);
+const Restaurant = mongoose.model(
+  "Restaurant",
+  restaurantSchema
+);
 
 export default Restaurant;

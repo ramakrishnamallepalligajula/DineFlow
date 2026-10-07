@@ -89,6 +89,22 @@ router.put(
           updatedTaxSettings;
       }
 
+      /*
+       * IMPORTANT:
+       *
+       * Do NOT accept paymentSettings from this
+       * general restaurant update endpoint.
+       *
+       * We don't want a frontend request such as:
+       *
+       * onboardingStatus: "ACTIVE"
+       *
+       * to activate online payments.
+       *
+       * Razorpay onboarding will control the payment
+       * activation status through the backend.
+       */
+
       const restaurant =
         await Restaurant.findOneAndUpdate(
           {
@@ -134,6 +150,307 @@ router.put(
       return res.status(500).json({
         message:
           "Failed to update restaurant",
+      });
+    }
+  }
+);
+
+// ==========================================
+// GET PAYMENT SETTINGS
+// ==========================================
+//
+// Used by the admin Payment Settings UI.
+//
+// This endpoint only returns the payment state.
+// It does NOT activate payments.
+//
+// ==========================================
+
+router.get(
+  "/payment-settings",
+  authMiddleware,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      // ==========================================
+      // CHECK RESTAURANT LINK
+      // ==========================================
+
+      if (!req.user.restaurantId) {
+        return res.status(400).json({
+          message:
+            "Restaurant not linked to this user",
+        });
+      }
+
+      // ==========================================
+      // FIND RESTAURANT
+      // ==========================================
+
+      const restaurant =
+        await Restaurant.findOne({
+          _id: req.user.restaurantId,
+          owner: req.user.userId,
+        }).select(
+          "name paymentSettings"
+        );
+
+      if (!restaurant) {
+        return res.status(404).json({
+          message:
+            "Restaurant not found",
+        });
+      }
+
+      // ==========================================
+      // SAFE PAYMENT RESPONSE
+      // ==========================================
+
+      const paymentSettings =
+        restaurant.paymentSettings || {};
+
+      return res.status(200).json({
+        paymentSettings: {
+          onlinePaymentsEnabled:
+            paymentSettings
+              .onlinePaymentsEnabled === true,
+
+          provider:
+            paymentSettings.provider || null,
+
+          onboardingStatus:
+            paymentSettings.onboardingStatus ||
+            "NOT_STARTED",
+
+          razorpayAccountId:
+            paymentSettings.razorpayAccountId ||
+            null,
+
+          activatedAt:
+            paymentSettings.activatedAt ||
+            null,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "❌ Failed to load payment settings:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to load payment settings",
+      });
+    }
+  }
+);
+
+// ==========================================
+// START RAZORPAY ONBOARDING
+// ==========================================
+//
+// IMPORTANT:
+//
+// This is intentionally NOT connected to Razorpay
+// yet.
+//
+// Once Razorpay Partner / Route onboarding is
+// configured, this endpoint will create/start the
+// actual restaurant onboarding process.
+//
+// ==========================================
+
+router.post(
+  "/payment-settings/onboarding",
+  authMiddleware,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      // ==========================================
+      // CHECK RESTAURANT LINK
+      // ==========================================
+
+      if (!req.user.restaurantId) {
+        return res.status(400).json({
+          message:
+            "Restaurant not linked to this user",
+        });
+      }
+
+      // ==========================================
+      // FIND RESTAURANT
+      // ==========================================
+
+      const restaurant =
+        await Restaurant.findOne({
+          _id: req.user.restaurantId,
+          owner: req.user.userId,
+        });
+
+      if (!restaurant) {
+        return res.status(404).json({
+          message:
+            "Restaurant not found",
+        });
+      }
+
+      // ==========================================
+      // ALREADY ACTIVE
+      // ==========================================
+
+      if (
+        restaurant.paymentSettings
+          ?.onboardingStatus === "ACTIVE"
+      ) {
+        return res.status(400).json({
+          message:
+            "Online payments are already active",
+        });
+      }
+
+      // ==========================================
+      // ALREADY PENDING
+      // ==========================================
+
+      if (
+        restaurant.paymentSettings
+          ?.onboardingStatus === "PENDING"
+      ) {
+        return res.status(200).json({
+          message:
+            "Razorpay onboarding is already in progress",
+
+          onboardingStatus:
+            "PENDING",
+        });
+      }
+
+      /*
+       * ==========================================
+       * RAZORPAY ONBOARDING WILL BE IMPLEMENTED
+       * HERE.
+       * ==========================================
+       *
+       * Future flow:
+       *
+       * Restaurant
+       *      ↓
+       * DineFlow backend
+       *      ↓
+       * Razorpay onboarding API
+       *      ↓
+       * Business details
+       *      ↓
+       * Bank details
+       *      ↓
+       * KYC
+       *      ↓
+       * Razorpay verification
+       *      ↓
+       * ACTIVE
+       *
+       * We do NOT mark the restaurant as ACTIVE here.
+       */
+
+      return res.status(501).json({
+        message:
+          "Razorpay onboarding is not configured yet",
+      });
+    } catch (error) {
+      console.error(
+        "❌ Failed to start Razorpay onboarding:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to start Razorpay onboarding",
+      });
+    }
+  }
+);
+
+// ==========================================
+// DISABLE ONLINE PAYMENTS
+// ==========================================
+//
+// Admin can disable online payments after
+// onboarding.
+//
+// IMPORTANT:
+// This does NOT delete the Razorpay account.
+// It only prevents DineFlow customers from
+// seeing online payment as an option.
+//
+// ==========================================
+
+router.patch(
+  "/payment-settings/disable",
+  authMiddleware,
+  requireRole("admin"),
+  async (req, res) => {
+    try {
+      // ==========================================
+      // CHECK RESTAURANT LINK
+      // ==========================================
+
+      if (!req.user.restaurantId) {
+        return res.status(400).json({
+          message:
+            "Restaurant not linked to this user",
+        });
+      }
+
+      // ==========================================
+      // FIND RESTAURANT
+      // ==========================================
+
+      const restaurant =
+        await Restaurant.findOne({
+          _id: req.user.restaurantId,
+          owner: req.user.userId,
+        });
+
+      if (!restaurant) {
+        return res.status(404).json({
+          message:
+            "Restaurant not found",
+        });
+      }
+
+      // ==========================================
+      // DISABLE ONLINE PAYMENTS
+      // ==========================================
+
+      restaurant.paymentSettings =
+        restaurant.paymentSettings || {};
+
+      restaurant.paymentSettings
+        .onlinePaymentsEnabled = false;
+
+      await restaurant.save();
+
+      console.log(
+        "💳 Online payments disabled:",
+        restaurant.name
+      );
+
+      return res.status(200).json({
+        message:
+          "Online payments disabled successfully",
+
+        paymentSettings:
+          restaurant.paymentSettings,
+      });
+    } catch (error) {
+      console.error(
+        "❌ Failed to disable online payments:",
+        error
+      );
+
+      return res.status(500).json({
+        message:
+          "Failed to disable online payments",
       });
     }
   }
@@ -240,21 +557,12 @@ router.post(
       // CREATE TRIAL DATES
       // ==========================================
 
-      /*const trialStartedAt = new Date();
-
-      const trialEndsAt = new Date(
-        trialStartedAt
-      );
-
-      trialEndsAt.setDate(
-        trialEndsAt.getDate() + 3
-      );*/
-
       const trialStartedAt = new Date();
 
       const trialEndsAt = new Date(
-          Date.now() + 3 * 24 * 60 * 60 * 1000
-        );
+        Date.now() +
+          3 * 24 * 60 * 60 * 1000
+      );
 
       // ==========================================
       // SAVE SUBSCRIPTION

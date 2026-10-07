@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { apiFetch } from "../services/api";
+import AdminNavigation from "./AdminNavigation";
 const ROLE_OPTIONS = [
   {
     value: "KITCHEN",
@@ -470,22 +471,34 @@ function PrinterManagement() {
   // LOADING
   // ==========================================
   if (loading) {
-    return (
-      <section style={styles.section}>
-        <div style={styles.loadingBox}>
-          <div style={styles.spinner}>⟳</div>
-          <strong>
-            Loading printer configuration...
-          </strong>
-          <span>
-            Checking connected printer devices.
-          </span>
-        </div>
-      </section>
-    );
-  }
   return (
-    <section style={styles.section}>
+    <div className="printer-management-page">
+      <AdminNavigation />
+
+      <main className="printer-management-main">
+        <section style={styles.section}>
+          <div style={styles.loadingBox}>
+            <div style={styles.spinner}>⟳</div>
+
+            <strong>
+              Loading printer configuration...
+            </strong>
+
+            <span>
+              Checking connected printer devices.
+            </span>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+  return (
+    <div className="printer-management-page">
+    <AdminNavigation />
+
+    <main className="printer-management-main">
+      <section style={styles.section}>
       <div style={styles.header}>
         <div>
           <div style={styles.eyebrow}>
@@ -1443,6 +1456,8 @@ function PrinterManagement() {
         )}
       </div>
     </section>
+    </main>
+  </div>
   );
 }
 const styles = {
@@ -1455,6 +1470,7 @@ const styles = {
     border: "1px solid #e8e8e8",
     boxShadow:
       "0 8px 30px rgba(0,0,0,0.04)",
+    boxSizing: "border-box",
   },
   header: {
     display: "flex",
@@ -1838,5 +1854,9 @@ const styles = {
     fontSize: "13px",
     fontWeight: 600,
   },
+
+
 };
+
+
 export default PrinterManagement;

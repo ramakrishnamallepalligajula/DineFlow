@@ -1,4 +1,4 @@
-/* eslint-disable no-undef */
+
 
 /* eslint-disable no-unused-vars */
 
@@ -69,350 +69,80 @@ const useCountUp = (target, duration = 1000) => {
 
 
 function AdminDashboard() {
-
-
-
-
-
-
-
   const [dashboard, setDashboard] = useState(null);
-
-
-
   const { restaurant } = useAuth();
-
-
-
-
-
   const [revenueData, setRevenueData] = useState([]);
-
-
-
-
-
-
-
-  const [foodPerformance, setFoodPerformance] =
-
-
-
-    useState([]);
-
-
-
-
-
-
-
-  const [categoryPerformance, setCategoryPerformance] =
-
-
-
-    useState([]);
-
-
-
-
-
-
-
+  const [foodPerformance, setFoodPerformance] = useState([]);
+  const [categoryPerformance, setCategoryPerformance] = useState([]);
   const [peakHours, setPeakHours] = useState([]);
-
-
-
-
-
-
-
   const [revenueDays, setRevenueDays] = useState(7);
-
-
-
-
-
-
-
-  const [showMoreOrders, setShowMoreOrders] =
-
-
-
-    useState(false);
-
-
-
-  const [expandedSessionIds, setExpandedSessionIds] =
-
-
-
-    useState(new Set());
-
-
-
-
-
-
-
-  const [expandedSection, setExpandedSection] =
-
-
-
-    useState(null);
-
-
-
-
-
-
-
+  const [showMoreOrders, setShowMoreOrders] = useState(false);
+  const [expandedSessionIds, setExpandedSessionIds] = useState(new Set());
+  const [expandedSection, setExpandedSection] = useState(null);
   const [revenueSummary, setRevenueSummary] = useState({
-
-
-
     totalRevenue: 0,
-
-
-
     totalOrders: 0,
-
-
-
     totalItemsSold: 0,
-
-
-
     averageOrderValue: 0,
-
-
-
-  });
-
-
-
-
-
-
-
+});
   const [loading, setLoading] = useState(true);
-
-
-
-
-
-
-
   const [error, setError] = useState("");
-
   const animatedRevenue = useCountUp(
     dashboard?.stats?.todayRevenue ?? 0,
     1200
   );
-
   const animatedTodayOrders = useCountUp(
     dashboard?.stats?.todayOrders ?? 0,
     900
   );
-
   const animatedActiveOrders = useCountUp(
     dashboard?.stats?.activeOrders ?? 0,
     800
   );
-
   const animatedTotalOrders = useCountUp(
     dashboard?.stats?.totalOrders ?? 0,
     1000
   );
-
   const animatedTables = useCountUp(
     dashboard?.stats?.totalTables ?? 0,
     700
   );
 
-
-
-
-
   /* =========================================
-
-
-
      LOAD DASHBOARD
-
-
-
   ========================================= */
-
-
-
-
-
-
-
   useEffect(() => {
-
-
-
     const loadDashboard = async () => {
-
-
-
       try {
-
-
-
         setLoading(true);
-
-
-
         setError("");
-
-
-
-
-
-
-
         /* =========================
-
-
-
            DASHBOARD
-
-
-
         \========================= */
-
-
-
-
-
-
-
         const response = await apiFetch(
-
-
-
           "/api/analytics/dashboard"
-
-
-
         );
-
-
-
-
-
-
-
         const data = await response.json();
-
-
-
-
-
-
-
         if (!response.ok) {
-
-
-
           throw new Error(
-
-
-
             data.message ||
-
-
-
               "Failed to load dashboard"
-
-
-
           );
-
-
-
         }
-
-
-
-
-
-
-
         setDashboard(data);
-
-
-
-
-
-
-
         /* =========================
-
-
-
            REVENUE
-
-
-
         \========================= */
-
-
-
-
-
-
-
         const revenueResponse = await apiFetch(
-
-
-
           `/api/analytics/revenue?days=${revenueDays}`
-
-
-
         );
-
-
-
-
-
-
-
         const revenueResult =
-
-
-
           await revenueResponse.json();
-
-
-
-
-
-
-
         if (!revenueResponse.ok) {
-
-
-
           throw new Error(
-
-
-
             revenueResult.message ||
-
-
-
               "Failed to load revenue analytics"
-
-
-
           );
-
-
-
         }
 
 

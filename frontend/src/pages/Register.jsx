@@ -13,7 +13,7 @@ function Register() {
     password: "",
     confirmPassword: "",
     restaurantName: "",
-    restaurantPhone: "",
+    gstin: "",
     restaurantAddress: "",
   });
 
@@ -21,13 +21,20 @@ function Register() {
   const [error, setError] = useState("");
 
   const handleChange = (event) => {
-    const { name, value } = event.target;
+  const { name } = event.target;
+  let { value } = event.target;
 
-    setFormData((currentData) => ({
-      ...currentData,
-      [name]: value,
-    }));
-  };
+  if (name === "gstin") {
+    value = value
+      .toUpperCase()
+      .replace(/\s/g, "");
+  }
+
+  setFormData((currentData) => ({
+    ...currentData,
+    [name]: value,
+  }));
+};
 
   const handleRegister = async (event) => {
     event.preventDefault();
@@ -59,7 +66,7 @@ function Register() {
             email: formData.email,
             password: formData.password,
             restaurantName: formData.restaurantName,
-            restaurantPhone: formData.restaurantPhone,
+            gstin: formData.gstin,
             restaurantAddress: formData.restaurantAddress,
           }),
         }
@@ -433,28 +440,24 @@ function Register() {
 
                 </div>
 
-                {/* Phone */}
+                {/* GSTIN */}
 
-                <div className="register-field register-field-full">
-
-                  <label htmlFor="restaurantPhone">
-                    Phone number
-                    <span className="optional">
-                      Optional
-                    </span>
+              <div className="form-group">
+                  <label htmlFor="gstin">
+                      GSTIN <span>*</span>
                   </label>
 
-                  <input
-                    id="restaurantPhone"
-                    name="restaurantPhone"
-                    type="tel"
-                    value={formData.restaurantPhone}
-                    onChange={handleChange}
-                    placeholder="+91 98765 43210"
-                    autoComplete="tel"
-                  />
-
-                </div>
+                    <input
+                        id="gstin"
+                        name="gstin"
+                        type="text"
+                        value={formData.gstin}
+                        onChange={handleChange}
+                        placeholder="Enter 15-character GSTIN"
+                        maxLength={15}
+                        required
+                      />
+              </div>
 
                 {/* Address */}
 
@@ -462,8 +465,8 @@ function Register() {
 
                   <label htmlFor="restaurantAddress">
                     Restaurant address
-                    <span className="optional">
-                      Optional
+                    <span>
+                      *
                     </span>
                   </label>
 
@@ -474,6 +477,7 @@ function Register() {
                     onChange={handleChange}
                     placeholder="Enter your restaurant address"
                     rows="3"
+                    required
                   />
 
                 </div>

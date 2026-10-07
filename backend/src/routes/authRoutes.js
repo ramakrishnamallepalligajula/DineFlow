@@ -20,8 +20,8 @@ router.post("/register", async (req, res) => {
       email,
       password,
       restaurantName,
-      restaurantPhone,
       restaurantAddress,
+      gstin,
     } = req.body;
 
     /* -------------------------
@@ -32,24 +32,42 @@ router.post("/register", async (req, res) => {
       !name ||
       !email ||
       !password ||
-      !restaurantName
+      !restaurantName ||
+      !restaurantAddress ||
+      !gstin
     ) {
       return res.status(400).json({
         message:
-          "Name, email, password and restaurant name are required",
+          "Name, email, password, restaurant name, address and GSTIN are required",
       });
     }
 
     if (password.length < 6) {
       return res.status(400).json({
-        message:
-          "Password must be at least 6 characters",
+        message: "Password must be at least 6 characters",
       });
     }
 
     const normalizedEmail = email
       .trim()
       .toLowerCase();
+
+    const normalizedGstin = gstin
+      .trim()
+      .toUpperCase();
+
+    /* -------------------------
+       GSTIN VALIDATION
+    ------------------------- */
+
+    const gstinRegex =
+      /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+    if (!gstinRegex.test(normalizedGstin)) {
+      return res.status(400).json({
+        message: "Please enter a valid 15-character GSTIN",
+      });
+    }
 
     /* -------------------------
        CHECK EXISTING USER
@@ -92,8 +110,8 @@ router.post("/register", async (req, res) => {
     const restaurant = await Restaurant.create({
       name: restaurantName.trim(),
       email: normalizedEmail,
-      phone: restaurantPhone?.trim() || "",
-      address: restaurantAddress?.trim() || "",
+      address: restaurantAddress.trim(),
+      gstin: normalizedGstin,
       owner: user._id,
     });
 
@@ -142,8 +160,8 @@ router.post("/register", async (req, res) => {
         id: restaurant._id,
         name: restaurant.name,
         email: restaurant.email,
-        phone: restaurant.phone,
         address: restaurant.address,
+        gstin: restaurant.gstin,
       },
     });
   } catch (error) {
@@ -157,7 +175,6 @@ router.post("/register", async (req, res) => {
     });
   }
 });
-
 
 /* =========================================================
    LOGIN
@@ -424,70 +441,6 @@ router.get(
     }
   }
 );
-
-/* =========================================================
-   GET CURRENT USER
-========================================================= */
-
-/*router.get(
-  "/me",
-  authMiddleware,
-  async (req, res) => {
-    try {
-      const user = await User.findById(
-        req.user.userId
-      ).select("-passwordHash");
-
-      if (!user) {
-        return res.status(404).json({
-          message: "User not found",
-        });
-      }
-
-      const restaurant =
-        await Restaurant.findById(
-          user.restaurantId
-        );
-
-      if (!restaurant) {
-        return res.status(404).json({
-          message:
-            "Restaurant associated with this account was not found",
-        });
-      }
-
-      return res.status(200).json({
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          restaurantId: user.restaurantId,
-        },
-
-        restaurant: {
-          id: restaurant._id,
-          name: restaurant.name,
-          email: restaurant.email,
-          phone: restaurant.phone,
-          address: restaurant.address,
-        },
-      });
-    } catch (error) {
-      console.error(
-        "Get current user error:",
-        error
-      );
-
-      return res.status(500).json({
-        message:
-          "Server error while fetching user",
-      });
-    }
-  }
-);*/
-
-
 // =========================================================
 // GET CURRENT USER
 // =========================================================
