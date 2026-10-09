@@ -41,6 +41,8 @@ const io = new Server(server, {
   },
 });
 
+app.set("io", io);
+
 // =========================
 // CONNECT ROUTES TO SOCKET.IO
 // =========================

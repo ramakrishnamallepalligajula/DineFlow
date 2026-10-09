@@ -19,6 +19,7 @@ const printerDeviceSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: [
+        "ANDROID_BRIDGE",
         "WINDOWS_AGENT",
         "RASPBERRY_PI",
         "MAC_AGENT",

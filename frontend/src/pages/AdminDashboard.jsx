@@ -26,10 +26,6 @@ import { motion } from "motion/react";
 
 import { Armchair, LayoutDashboard } from "lucide-react";
 
-
-
-
-
 const useCountUp = (target, duration = 1000) => {
   const [count, setCount] = useState(0);
 
@@ -66,7 +62,6 @@ const useCountUp = (target, duration = 1000) => {
 
   return count;
 };
-
 
 function AdminDashboard() {
   const [dashboard, setDashboard] = useState(null);
@@ -145,883 +140,363 @@ function AdminDashboard() {
           );
         }
 
-
-
-
-
-
-
         setRevenueData(
-
-
 
           revenueResult.revenue || []
 
-
-
         );
-
-
-
-
-
-
 
         setRevenueSummary(
 
-
-
           revenueResult.summary || {
-
-
 
             totalRevenue: 0,
 
-
-
             totalOrders: 0,
-
-
 
             totalItemsSold: 0,
 
-
-
             averageOrderValue: 0,
-
-
 
           }
 
-
-
         );
 
-
-
-
-
-
-
         /* =========================
-
-
 
            FOOD PERFORMANCE
 
-
-
         \========================= */
-
-
-
-
-
-
 
         const foodResponse = await apiFetch(
 
-
-
           "/api/analytics/food-performance"
 
-
-
         );
-
-
-
-
-
-
 
         const foodResult =
 
-
-
           await foodResponse.json();
-
-
-
-
-
-
 
         if (!foodResponse.ok) {
 
-
-
           throw new Error(
-
-
 
             foodResult.message ||
 
-
-
               "Failed to load food performance"
-
-
 
           );
 
-
-
         }
-
-
-
-
-
-
 
         setFoodPerformance(
 
-
-
           foodResult.foodPerformance || []
-
-
 
         );
 
-
-
-
-
-
-
         /* =========================
-
-
 
            CATEGORY PERFORMANCE
 
-
-
         \========================= */
-
-
-
-
-
-
 
         const categoryResponse =
 
-
-
           await apiFetch(
-
-
 
             "/api/analytics/category-performance"
 
-
-
           );
-
-
-
-
-
-
 
         const categoryResult =
 
-
-
           await categoryResponse.json();
-
-
-
-
-
-
 
         if (!categoryResponse.ok) {
 
-
-
           throw new Error(
-
-
 
             categoryResult.message ||
 
-
-
               "Failed to load category performance"
-
-
 
           );
 
-
-
         }
-
-
-
-
-
-
 
         setCategoryPerformance(
 
-
-
           categoryResult.categoryPerformance || []
 
-
-
         );
-
-
-
-
-
-
 
         /* =========================
 
-
-
            PEAK HOURS
-
-
 
         \========================= */
 
-
-
-
-
-
-
         const peakResponse = await apiFetch(
-
-
 
           "/api/analytics/peak-hours"
 
-
-
         );
-
-
-
-
-
-
 
         const peakResult =
 
-
-
           await peakResponse.json();
-
-
-
-
-
-
 
         if (!peakResponse.ok) {
 
-
-
           throw new Error(
-
-
 
             peakResult.message ||
 
-
-
               "Failed to load peak hours"
-
-
 
           );
 
-
-
         }
-
-
-
-
-
-
 
         setPeakHours(
 
-
-
           peakResult.peakHours || []
 
-
-
         );
-
-
 
       } catch (error) {
 
-
-
         console.error(
-
-
 
           "Failed to load dashboard:",
 
-
-
           error
 
-
-
         );
-
-
-
-
-
-
 
         setError(
 
-
-
           error.message ||
-
-
 
             "Something went wrong while loading the dashboard."
 
-
-
         );
-
-
 
       } finally {
 
-
-
         setLoading(false);
-
-
 
       }
 
-
-
     };
-
-
-
-
-
-
 
     loadDashboard();
 
-
-
-
-
-
-
     /* =========================
-
-
 
        LIVE ORDER REFRESH
 
-
-
     \========================= */
-
-
-
-
-
-
 
     const handleDashboardRefresh = () => {
 
-
-
       loadDashboard();
 
-
-
     };
-
-
-
-
-
-
 
     socket.on("new-order", handleDashboardRefresh);
 
-
-
     socket.on("dining-session-updated", handleDashboardRefresh);
-
-
 
     socket.on("bill-requested", handleDashboardRefresh);
 
-
-
     socket.on("order-status-updated", handleDashboardRefresh);
-
-
-
-
-
-
 
     return () => {
 
-
-
       socket.off("new-order", handleDashboardRefresh);
-
-
 
       socket.off("dining-session-updated", handleDashboardRefresh);
 
-
-
       socket.off("bill-requested", handleDashboardRefresh);
-
-
 
       socket.off("order-status-updated", handleDashboardRefresh);
 
-
-
     };
-
-
 
   }, [revenueDays]);
 
-
-
-
-
   /* =========================================
-
-
 
      ACCORDION
 
-
-
   ========================================= */
-
-
-
-
-
-
 
   const toggleSection = (section) => {
 
-
-
     setExpandedSection((current) =>
-
-
 
       current === section
 
-
-
         ? null
-
-
 
         : section
 
-
-
     );
-
-
 
   };
 
-
-
-
-
-
-
   /* =========================================
-
-
 
      LOADING
 
-
-
   ========================================= */
-
-
-
-
-
-
 
   if (loading) {
 
-
-
     return (
 
-
-
       <div className="admin-dashboard-page">
-
-
 
         <div className="dashboard-loading">
 
-
-
           <div className="loading-spinner">
-
-
 
             ⟳
 
-
-
           </div>
-
-
-
-
-
-
 
           <h2>
 
-
-
             Loading your restaurant...
-
-
 
           </h2>
 
-
-
-
-
-
-
           <p>
-
-
 
             Preparing your business overview.
 
-
-
           </p>
-
-
 
         </div>
 
-
-
       </div>
-
-
 
     );
 
-
-
   }
 
-
-
-
-
-
-
   /* =========================================
-
-
 
      ERROR
 
-
-
   ========================================= */
-
-
-
-
-
-
 
   if (error) {
 
-
-
     return (
-
-
 
       <div className="admin-dashboard-page">
 
-
-
         <AdminNavigation />
-
-
-
-
-
-
 
         <main className="admin-dashboard-content">
 
-
-
           <div className="dashboard-error">
-
-
 
             <div className="error-icon">
 
-
-
               !
-
-
 
             </div>
 
-
-
-
-
-
-
             <h2>
-
-
 
               Unable to load dashboard
 
-
-
             </h2>
-
-
-
-
-
-
 
             <p>{error}</p>
 
-
-
-
-
-
-
             <button
-
-
 
               onClick={() =>
 
-
-
                 window.location.reload()
-
-
 
               }
 
-
-
             >
-
-
 
               Try Again
 
-
-
             </button>
-
-
 
           </div>
 
-
-
         </main>
-
-
 
       </div>
 
-
-
     );
-
-
 
   }
 
-
-
-
-
-
-
   /* =========================================
 
-
-
      DASHBOARD DATA
-
-
 
   ========================================= */
 
   const recentOrders =
 
-
-
     dashboard?.recentOrders || [];
-
-
-
-
-
-
 
   const activeSessions =
 
-
-
     dashboard?.activeSessions || [];
-
-
-
-
-
-
 
   const toggleSession = (sessionId) => {
 
-
-
     setExpandedSessionIds((current) => {
-
-
 
       const next = new Set(current);
 
-
-
       if (next.has(sessionId)) {
-
-
 
         next.delete(sessionId);
 
-
-
       } else {
-
-
 
         next.add(sessionId);
 
-
-
       }
-
-
 
       return next;
 
-
-
     });
-
-
 
   };
 
-
-
-
-
-
-
   const visibleOrders =
-
-
 
     recentOrders.slice(
 
-
-
       0,
-
-
 
       showMoreOrders ? 10 : 5
 
-
-
     );
-
-
-
-
-
-
 
   const topFoodPerformance =
 
-
-
     foodPerformance.slice(0, 5);
-
-
-
-
-
-
 
   const topFoods =
 
-
-
     dashboard?.topFoods || [];
-
-
 
   // =========================================
 
@@ -1029,13 +504,9 @@ function AdminDashboard() {
 
 // =========================================
 
-
-
 const subscription =
 
   restaurant?.subscription || null;
-
-
 
 const subscriptionStatus = String(
 
@@ -1043,19 +514,13 @@ const subscriptionStatus = String(
 
 ).toUpperCase();
 
-
-
 const planType =
 
   subscription?.plan?.type || null;
 
-
-
 const billingPeriod =
 
   subscription?.billingPeriod || null;
-
-
 
 const getDaysRemaining = (date) => {
 
@@ -1065,11 +530,7 @@ const getDaysRemaining = (date) => {
 
   }
 
-
-
   const endDate = new Date(date);
-
-
 
   if (Number.isNaN(endDate.getTime())) {
 
@@ -1077,17 +538,11 @@ const getDaysRemaining = (date) => {
 
   }
 
-
-
   const now = new Date();
-
-
 
   const difference =
 
     endDate.getTime() - now.getTime();
-
-
 
   return Math.max(
 
@@ -1103,8 +558,6 @@ const getDaysRemaining = (date) => {
 
 };
 
-
-
 const trialDaysRemaining =
 
   getDaysRemaining(
@@ -1112,8 +565,6 @@ const trialDaysRemaining =
     subscription?.trialEndsAt
 
   );
-
-
 
 const planDaysRemaining =
 
@@ -1123,8 +574,6 @@ const planDaysRemaining =
 
   );
 
-
-
 const formatSubscriptionDate = (date) => {
 
   if (!date) {
@@ -1133,19 +582,13 @@ const formatSubscriptionDate = (date) => {
 
   }
 
-
-
   const parsedDate = new Date(date);
-
-
 
   if (Number.isNaN(parsedDate.getTime())) {
 
     return "—";
 
   }
-
-
 
   return parsedDate.toLocaleDateString(
 
@@ -1165,8 +608,6 @@ const formatSubscriptionDate = (date) => {
 
 };
 
-
-
 const getPlanName = () => {
 
   if (!planType) {
@@ -1175,15 +616,11 @@ const getPlanName = () => {
 
   }
 
-
-
   return String(planType)
 
     .toUpperCase();
 
 };
-
-
 
 const getBillingLabel = () => {
 
@@ -1192,8 +629,6 @@ const getBillingLabel = () => {
     return "";
 
   }
-
-
 
   return String(billingPeriod)
 
@@ -1209,199 +644,77 @@ const getBillingLabel = () => {
 
 };
 
-
-
   /* =========================================
-
-
 
      RENDER
 
-
-
   ========================================= */
-
-
-
-
-
-
 
   return (
 
-
-
     <div className="admin-dashboard-page">
-
-
 
       <AdminNavigation />
 
-
-
-
-
-
-
       <main className="admin-dashboard-content">
-
-
-
-
-
-
 
         {/* =====================================
 
-
-
             HEADER
-
-
 
         ===================================== */}
 
-
-
-
-
-
-
         <header className="dashboard-header">
-
-
-
-
-
-
 
           <div className="dashboard-header-left">
 
-
-
-
-
-
-
             <span className="dashboard-eyebrow">
-
-
 
               RESTAURANT OVERVIEW
 
-
-
             </span>
-
-
-
-
-
-
 
             <h1>
 
-
-
               Your restaurant,
-
-
 
               <br />
 
-
-
               <span>at a glance.</span>
-
-
 
             </h1>
 
-
-
-
-
-
-
             <p>
-
-
 
               Monitor today's operations,
 
-
-
               revenue and customer activity
-
-
 
               from one place.
 
-
-
             </p>
 
-
-
-
-
-
-
           </div>
-
-
-
-
-
-
 
           <div className="dashboard-header-actions">
 
-
-
-
-
-
-
             <div className="dashboard-live-status">
-
-
 
               <span />
 
-
-
               Live
-
-
 
             </div>
 
-
-
           </div>
 
-
-
-
-
-
-
         </header>
-
-
-
-
-
-
 
 {/* =====================================
 
     KPI CARDS
 
 ===================================== */}
-
-
 
 <section className="dashboard-section">
   <div className="section-heading">
@@ -1580,498 +893,195 @@ const getBillingLabel = () => {
   </motion.div>
 </section>
 
-
 {/* =====================================
-
-
 
             REVENUE + ACTIVITY
 
-
-
         ===================================== */}
-
-
-
-
-
-
 
         <section className="dashboard-main-grid">
 
-
-
-
-
-
-
           {/* REVENUE */}
-
-
-
-
-
-
 
           <div className="dashboard-card revenue-card">
 
-
-
-
-
-
-
             <div className="card-header">
 
-
-
-
-
-
-
               <div>
-
-
 
                 <span className="card-eyebrow">
 
-
-
                   BUSINESS PERFORMANCE
 
-
-
                 </span>
-
-
-
-
-
-
 
                 <h2>
 
-
-
                   Revenue overview
-
-
 
                 </h2>
 
-
-
-
-
-
-
                 <p>
-
-
 
                   Track your revenue trend
 
-
-
                   across different periods.
-
-
 
                 </p>
 
-
-
               </div>
-
-
-
-
-
-
 
               <div className="revenue-period-buttons">
 
-
-
-
-
-
-
                 {[7, 30, 90].map(
-
-
 
                   (days) => (
 
-
-
                     <button
-
-
 
                       key={days}
 
-
-
                       className={
-
-
 
                         revenueDays === days
 
-
-
                           ? "active"
-
-
 
                           : ""
 
-
-
                       }
-
-
 
                       onClick={() =>
 
-
-
                         setRevenueDays(days)
-
-
 
                       }
 
-
-
                     >
-
-
 
                       {days === 7
 
-
-
                         ? "7D"
-
-
 
                         : days === 30
 
-
-
                         ? "30D"
-
-
 
                         : "3M"}
 
-
-
                     </button>
-
-
 
                   )
 
-
-
                 )}
-
-
-
-
-
-
 
               </div>
 
-
-
-
-
-
-
             </div>
-
-
-
-
-
-
 
             <div className="revenue-summary">
 
-
-
-
-
-
-
               <div className="revenue-total">
 
-
-
-
-
-
-
                 <span>
-
-
 
                   Revenue
 
-
-
                 </span>
-
-
-
-
-
-
 
                 <strong>
 
-
-
                   ₹
 
-
-
                   {Number(
-
-
 
                     revenueSummary.totalRevenue || 0
 
-
-
                   ).toLocaleString("en-IN")}
 
-
-
                 </strong>
-
-
-
-
-
-
 
                 <small>
 
-
-
                   Selected period
-
-
 
                 </small>
 
-
-
-
-
-
-
               </div>
-
-
-
-
-
-
 
               <div>
 
-
-
                 <span>
-
-
 
                   Orders
 
-
-
                 </span>
 
-
-
-
-
-
-
                 <strong>
-
-
 
                   {revenueSummary.totalOrders}
 
-
-
                 </strong>
-
-
 
               </div>
 
-
-
-
-
-
-
               <div>
 
-
-
                 <span>
-
-
 
                   Items sold
 
-
-
                 </span>
 
-
-
-
-
-
-
                 <strong>
-
-
 
                   {revenueSummary.totalItemsSold}
 
-
-
                 </strong>
 
-
-
               </div>
-
-
-
-
-
-
 
               <div>
 
-
-
                 <span>
-
-
 
                   Avg. order
 
-
-
                 </span>
-
-
-
-
-
-
 
                 <strong>
 
-
-
                   ₹
-
-
 
                   {Number(
 
-
-
                     revenueSummary.averageOrderValue || 0
-
-
 
                   ).toLocaleString("en-IN")}
 
-
-
                 </strong>
-
-
 
               </div>
 
-
-
-
-
-
-
             </div>
-
-
-
-
-
-
 
             <div className="revenue-chart-container">
 
-
-
               <RevenueChart
-
-
 
                 data={revenueData}
 
-
-
               />
-
-
 
             </div>
 
-
-
-
-
-
-
           </div>
-
-
-
-
-
-
 
           {/* ACTIVITY */}
 
-
-
-
-
-
-
       <div className="dashboard-card subscription-card">
 
-
-
   <div className="card-header">
-
-
 
     <div>
 
@@ -2081,8 +1091,6 @@ const getBillingLabel = () => {
 
       </span>
 
-
-
       <h2>
 
         Subscription
@@ -2091,25 +1099,15 @@ const getBillingLabel = () => {
 
     </div>
 
-
-
     <div className="activity-icon">
 
       💳
 
     </div>
 
-
-
   </div>
 
-
-
-
-
   {/* CURRENT PLAN */}
-
-
 
   <div
 
@@ -2131,11 +1129,7 @@ const getBillingLabel = () => {
 
   >
 
-
-
     <div>
-
-
 
       <span
 
@@ -2161,8 +1155,6 @@ const getBillingLabel = () => {
 
       </span>
 
-
-
       <h3
 
         style={{
@@ -2182,8 +1174,6 @@ const getBillingLabel = () => {
         {getPlanName()}
 
       </h3>
-
-
 
       {getBillingLabel() && (
 
@@ -2209,13 +1199,7 @@ const getBillingLabel = () => {
 
       )}
 
-
-
     </div>
-
-
-
-
 
     <span
 
@@ -2269,17 +1253,9 @@ const getBillingLabel = () => {
 
     </span>
 
-
-
   </div>
 
-
-
-
-
   {/* FREE TRIAL */}
-
-
 
   <div
 
@@ -2301,8 +1277,6 @@ const getBillingLabel = () => {
 
   >
 
-
-
     <div
 
       style={{
@@ -2316,8 +1290,6 @@ const getBillingLabel = () => {
       }}
 
     >
-
-
 
       <div
 
@@ -2347,11 +1319,7 @@ const getBillingLabel = () => {
 
       </div>
 
-
-
       <div>
-
-
 
         <strong
 
@@ -2370,8 +1338,6 @@ const getBillingLabel = () => {
           Free trial
 
         </strong>
-
-
 
         <span
 
@@ -2401,17 +1367,9 @@ const getBillingLabel = () => {
 
         </span>
 
-
-
       </div>
 
-
-
     </div>
-
-
-
-
 
     <strong
 
@@ -2449,17 +1407,9 @@ const getBillingLabel = () => {
 
     </strong>
 
-
-
   </div>
 
-
-
-
-
   {/* ACTIVE PLAN */}
-
-
 
   <div
 
@@ -2479,8 +1429,6 @@ const getBillingLabel = () => {
 
   >
 
-
-
     <div
 
       style={{
@@ -2494,8 +1442,6 @@ const getBillingLabel = () => {
       }}
 
     >
-
-
 
       <div
 
@@ -2525,11 +1471,7 @@ const getBillingLabel = () => {
 
       </div>
 
-
-
       <div>
-
-
 
         <strong
 
@@ -2548,8 +1490,6 @@ const getBillingLabel = () => {
           Active plan
 
         </strong>
-
-
 
         <span
 
@@ -2583,17 +1523,9 @@ const getBillingLabel = () => {
 
         </span>
 
-
-
       </div>
 
-
-
     </div>
-
-
-
-
 
     <div
 
@@ -2604,8 +1536,6 @@ const getBillingLabel = () => {
       }}
 
     >
-
-
 
       <strong
 
@@ -2645,21 +1575,11 @@ const getBillingLabel = () => {
 
       </strong>
 
-
-
     </div>
-
-
 
   </div>
 
-
-
-
-
   {/* STATUS MESSAGE */}
-
-
 
   {subscriptionStatus === "TRIALING" && (
 
@@ -2689,8 +1609,6 @@ const getBillingLabel = () => {
 
   )}
 
-
-
   {subscriptionStatus === "ACTIVE" && (
 
     <div
@@ -2718,8 +1636,6 @@ const getBillingLabel = () => {
     </div>
 
   )}
-
-
 
   {(subscriptionStatus === "EXPIRED" ||
 
@@ -2751,29 +1667,15 @@ const getBillingLabel = () => {
 
   )}
 
-
-
 </div>          
 
-
-
-
-
         </section>
-
-
-
-
-
-
 
         {/* =====================================
 
             ACTIVE DINING SESSIONS
 
         ===================================== */}
-
-
 
         <section className="dashboard-section active-dining-section">
 
@@ -2806,8 +1708,6 @@ const getBillingLabel = () => {
             </button>
 
           </div>
-
-
 
           {activeSessions.length === 0 ? (
 
@@ -2851,8 +1751,6 @@ const getBillingLabel = () => {
 
                     </div>
 
-
-
                     <div className="active-dining-metrics">
 
                       <div><span>Orders</span><strong>{session.orderCount}</strong></div>
@@ -2862,8 +1760,6 @@ const getBillingLabel = () => {
                       <div><span>Total</span><strong>₹{Number(session.totalPrice || 0).toLocaleString("en-IN")}</strong></div>
 
                     </div>
-
-
 
                     {billRequested && (
 
@@ -2875,15 +1771,11 @@ const getBillingLabel = () => {
 
                     )}
 
-
-
                     <button className="active-dining-orders-button" onClick={() => toggleSession(session.sessionId)}>
 
                       {expanded ? "Hide orders" : "View orders"}
 
                     </button>
-
-
 
                     {expanded && (
 
@@ -2933,1315 +1825,235 @@ const getBillingLabel = () => {
 
         </section>
 
-
-
         {/* =====================================
-
-
-
-            RECENT ORDERS
-
-
-
-        ===================================== */}
-
-
-
-
-
-
-
-        <section className="dashboard-section">
-
-
-
-
-
-
-
-          <div className="section-heading">
-
-
-
-
-
-
-
-            <div>
-
-
-
-              <span>OPERATIONS</span>
-
-
-
-
-
-
-
-              <h2>
-
-
-
-                Recent orders
-
-
-
-              </h2>
-
-
-
-            </div>
-
-
-
-
-
-
-
-            <span className="section-meta">
-
-
-
-              {recentOrders.length} total
-
-
-
-            </span>
-
-
-
-
-
-
-
-          </div>
-
-
-
-
-
-
-
-          <div className="orders-card">
-
-
-
-
-
-
-
-            {recentOrders.length === 0 ? (
-
-
-
-              <div className="empty-dashboard">
-
-
-
-
-
-
-
-                <div>
-
-
-
-                  📦
-
-
-
-                </div>
-
-
-
-
-
-
-
-                <h3>
-
-
-
-                  No orders yet
-
-
-
-                </h3>
-
-
-
-
-
-
-
-                <p>
-
-
-
-                  Customer orders will appear
-
-
-
-                  here when they are placed.
-
-
-
-                </p>
-
-
-
-
-
-
-
-              </div>
-
-
-
-            ) : (
-
-
-
-              <>
-
-
-
-                <div className="orders-table-header">
-
-
-
-
-
-
-
-                  <span>
-
-
-
-                    ORDER
-
-
-
-                  </span>
-
-
-
-
-
-
-
-                  <span>
-
-
-
-                    TABLE
-
-
-
-                  </span>
-
-
-
-
-
-
-
-                  <span>
-
-
-
-                    ITEMS
-
-
-
-                  </span>
-
-
-
-
-
-
-
-                  <span>
-
-
-
-                    AMOUNT
-
-
-
-                  </span>
-
-
-
-
-
-
-
-                  <span>
-
-
-
-                    STATUS
-
-
-
-                  </span>
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-                <div className="recent-orders">
-
-
-
-
-
-
-
-                  {visibleOrders.map(
-
-
-
-                    (order) => (
-
-
-
-
-
-
-
-                      <div
-
-
-
-                        className="recent-order"
-
-
-
-                        key={order._id}
-
-
-
-                      >
-
-
-
-
-
-
-
-                        <div className="order-id">
-
-
-
-
-
-
-
-                          <strong>
-
-
-
-                            \#{order.orderId}
-
-
-
-                          </strong>
-
-
-
-
-
-
-
-                        </div>
-
-
-
-
-
-
-
-                        <div className="order-table">
-
-
-
-
-
-
-
-                          <span className="table-number">
-
-
-
-                            T{order.tableNumber}
-
-
-
-                          </span>
-
-
-
-
-
-
-
-                          <span>
-
-
-
-                            Table
-
-
-
-                          </span>
-
-
-
-
-
-
-
-                        </div>
-
-
-
-
-
-
-
-                        <div className="order-items">
-
-
-
-
-
-
-
-                          {order.items?.length || 0}{" "}
-
-
-
-                          {(order.items?.length || 0) === 1
-
-
-
-                            ? "item"
-
-
-
-                            : "items"}
-
-
-
-
-
-
-
-                        </div>
-
-
-
-
-
-
-
-                        <div className="order-amount">
-
-
-
-
-
-
-
-                          ₹
-
-
-
-                          {Number(
-
-
-
-                            order.totalPrice || 0
-
-
-
-                          ).toLocaleString("en-IN")}
-
-
-
-
-
-
-
-                        </div>
-
-
-
-
-
-
-
-                        <div>
-
-
-
-
-
-
-
-                          <span
-
-
-
-                            className={`status-badge ${
-
-
-
-                              order.status
-
-
-
-                                ?.toLowerCase()
-
-
-
-                                .replaceAll(
-
-
-
-                                  " ",
-
-
-
-                                  "-"
-
-
-
-                                )
-
-
-
-                            }`}
-
-
-
-                          >
-
-
-
-                            {order.status}
-
-
-
-                          </span>
-
-
-
-
-
-
-
-                        </div>
-
-
-
-
-
-
-
-                      </div>
-
-
-
-
-
-
-
-                    )
-
-
-
-                  )}
-
-
-
-
-
-
-
-                </div>
-
-
-
-
-
-
-
-                {recentOrders.length > 5 && (
-
-
-
-                  <div className="orders-footer">
-
-
-
-
-
-
-
-                    <button
-
-
-
-                      className="orders-expand-button"
-
-
-
-                      onClick={() =>
-
-
-
-                        setShowMoreOrders(
-
-
-
-                          !showMoreOrders
-
-
-
-                        )
-
-
-
-                      }
-
-
-
-                    >
-
-
-
-                      {showMoreOrders
-
-
-
-                        ? "Show less ↑"
-
-
-
-                        : `View all ${recentOrders.length} orders →`}
-
-
-
-                    </button>
-
-
-
-
-
-
-
-                  </div>
-
-
-
-                )}
-
-
-
-
-
-
-
-              </>
-
-
-
-            )}
-
-
-
-
-
-
-
-          </div>
-
-
-
-
-
-
-
-        </section>
-
-
-
-
-
-
-
-        {/* =====================================
-
-
 
             PERFORMANCE GRID
 
-
-
         ===================================== */}
-
-
-
-
-
-
 
         <section className="performance-grid">
 
-
-
-
-
-
-
           {/* TOP SELLERS */}
-
-
-
-
-
-
 
           <div className="dashboard-card">
 
-
-
-
-
-
-
             <div className="card-header">
-
-
-
-
-
-
 
               <div>
 
-
-
                 <span className="card-eyebrow">
-
-
 
                   MENU PERFORMANCE
 
-
-
                 </span>
 
-
-
-
-
-
-
                 <h2>
-
-
 
                   Best sellers
 
-
-
                 </h2>
-
-
 
               </div>
 
-
-
-
-
-
-
               <span className="card-meta">
-
-
 
                 Top 5 items
 
-
-
               </span>
 
-
-
-
-
-
-
             </div>
-
-
-
-
-
-
 
             <div className="best-sellers-card">
 
-
-
-
-
-
-
               {topFoods.length === 0 ? (
-
-
 
                 <div className="empty-dashboard">
 
-
-
-
-
-
-
                   <div>
-
-
 
                     🍽️
 
-
-
                   </div>
 
-
-
-
-
-
-
                   <h3>
-
-
 
                     No food sales yet
 
-
-
                   </h3>
 
-
-
-
-
-
-
                   <p>
-
-
 
                     Your best-selling menu
 
-
-
                     items will appear here.
-
-
 
                   </p>
 
-
-
-
-
-
-
                 </div>
 
-
-
               ) : (
-
-
 
                 <div className="best-sellers-list">
 
-
-
-
-
-
-
                   {topFoods
-
-
 
                     .slice(0, 5)
 
-
-
                     .map(
-
-
 
                       (food, index) => (
 
-
-
-
-
-
-
                         <div
-
-
 
                           className="best-seller-row"
 
-
-
                           key={food._id}
-
-
 
                         >
 
-
-
-
-
-
-
                           <div className="food-position">
-
-
 
                             {String(
 
-
-
                               index + 1
-
-
 
                             ).padStart(2, "0")}
 
-
-
                           </div>
-
-
-
-
-
-
 
                           <div className="food-placeholder">
 
-
-
                             🍴
 
-
-
                           </div>
-
-
-
-
-
-
 
                           <div className="food-info">
 
-
-
-
-
-
-
                             <strong>
-
-
 
                               {food._id}
 
-
-
                             </strong>
 
-
-
-
-
-
-
                             <span>
-
-
 
                               {food.quantity} sold
 
-
-
                             </span>
 
-
-
-
-
-
-
                           </div>
-
-
-
-
-
-
 
                           <div className="food-revenue">
 
-
-
-
-
-
-
                             <strong>
-
-
 
                               ₹
 
-
-
                               {Number(
-
-
 
                                 food.revenue || 0
 
-
-
                               ).toLocaleString("en-IN")}
-
-
 
                             </strong>
 
-
-
-
-
-
-
                             <span>
-
-
 
                               Revenue
 
-
-
                             </span>
-
-
-
-
-
-
 
                           </div>
 
-
-
-
-
-
-
                         </div>
-
-
-
-
-
-
 
                       )
 
-
-
                     )}
-
-
-
-
-
-
 
                 </div>
 
-
-
               )}
-
-
-
-
-
-
 
             </div>
 
-
-
-
-
-
-
           </div>
-
-
-
-
-
-
 
           {/* CATEGORY */}
 
-
-
-
-
-
-
           <div className="dashboard-card category-card">
-
-
-
-
-
-
 
             <div className="card-header">
 
-
-
-
-
-
-
               <div>
-
-
 
                 <span className="card-eyebrow">
 
-
-
                   SALES BREAKDOWN
-
-
 
                 </span>
 
-
-
-
-
-
-
                 <h2>
-
-
 
                   Sales by category
 
-
-
                 </h2>
-
-
 
               </div>
 
-
-
-
-
-
-
               <span className="card-meta">
-
-
 
                 {categoryPerformance.length} categories
 
-
-
               </span>
 
-
-
-
-
-
-
             </div>
-
-
-
-
-
-
 
             <div className="category-performance-container">
 
-
-
-
-
-
-
               {categoryPerformance.length === 0 ? (
-
-
 
                 <div className="empty-dashboard">
 
-
-
-
-
-
-
                   <div>
-
-
 
                     🏷️
 
-
-
                   </div>
-
-
-
-
-
-
 
                   <h3>
 
-
-
                     No category data yet
-
-
 
                   </h3>
 
-
-
-
-
-
-
                   <p>
-
-
 
                     Category sales will appear
 
-
-
                     after customers place orders.
-
-
 
                   </p>
 
-
-
-
-
-
-
                 </div>
-
-
 
               ) : (
 
-
-
                 <CategoryPerformance
-
-
 
                   categories={
 
-
-
                     categoryPerformance
-
-
 
                   }
 
-
-
                 />
-
-
 
               )}
 
-
-
-
-
-
-
             </div>
 
-
-
-
-
-
-
           </div>
-
-
-
-
-
-
 
         </section>
 
@@ -4253,22 +2065,10 @@ const getBillingLabel = () => {
 
     />
 
-
-
     </div>
-
-
 
   );
 
-
-
 }
-
-
-
-
-
-
 
 export default AdminDashboard;

@@ -7,7 +7,7 @@ import TableSession from "../models/TableSession.js";
 
 import authMiddleware from "../middleware/authMiddleware.js";
 import requireRole from "../middleware/roleMiddleware.js";
-import { createKitchenPrintJob,createBillingPrintJob } from "../services/printJobService.js";
+import { createKitchenPrintJob } from "../services/printJobService.js";
 import Restaurant from "../models/Restaurant.js";
 import Bill from "../models/Bill.js";
 import subscriptionMiddleware from "../middleware/subscriptionMiddleware.js";
@@ -790,6 +790,10 @@ console.log("🧾 Bill saved to MongoDB:", bill._id);
         // ===================================================
 
         const billData = {
+
+          _id: bill._id,
+          billNumber: bill.billNumber,
+
           sessionId:
             session.sessionId,
 
@@ -883,40 +887,6 @@ console.log("🧾 Bill saved to MongoDB:", bill._id);
         console.log(
           "✅ bill-requested event emitted"
         );
-
-// ===================================================
-// CREATE BILLING PRINT JOB
-// ===================================================
-
-try {
-  console.log("🖨️ Creating billing print job...");
-
-  const printJob = await createBillingPrintJob({
-    bill,
-    Restaurant,
-    io,
-  });
-
-  if (printJob) {
-    console.log(
-      "✅ Billing print job created:",
-      printJob._id
-    );
-
-    console.log(
-    "🖨️ Billing print job is waiting for printer confirmation."
-  );
-  } else {
-    console.log(
-      "⚠️ No billing printer configured."
-    );
-  }
-} catch (printError) {
-  console.error(
-    "❌ Billing print job failed:",
-    printError
-  );
-}
 
         // ===================================================
         // RESPONSE

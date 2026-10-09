@@ -18,6 +18,8 @@ import printerDeviceRoutes from "./routes/printerDeviceRoutes.js";
 import printerRoutes from "./routes/printerRoutes.js";
 import printerAgentRoutes from "./routes/printerAgentRoutes.js";
 
+import billPaymentRoutes from "./routes/billPaymentRoutes.js";
+
 const app = express();
 
 /*
@@ -267,6 +269,17 @@ export const setupRoutes = (io) => {
   app.use(
     "/api/printer-agent",
     printerAgentRoutes
+  );
+
+  /*
+   =======================
+   ROZORPAY
+   ======================= 
+  */
+
+  app.use(
+    "/api/bill-payments",
+    billPaymentRoutes
   );
 };
 

@@ -16,7 +16,12 @@ function OrderStatus() {
   const [requestingBill, setRequestingBill] =
     useState(false);
 
+  const [payingOnline, setPayingOnline] =
+    useState(false);
+
   const navigate = useNavigate();
+
+  const [payingCash, setPayingCash] = useState(false);
 
   const API_URL =
     import.meta.env.VITE_API_URL ||
@@ -219,132 +224,373 @@ function OrderStatus() {
       "join-restaurant",
       restaurantId
     );
+  }, [order?.restaurantId]);
 
-    // =========================
-    // ORDER STATUS UPDATE
-    // =========================
+  // =========================
+  // PAY CASH
+  // =========================
 
-    const handleStatusUpdate = (
-      updatedOrder
-    ) => {
-      console.log(
-        "⚡ Order status updated:",
-        updatedOrder
-      );
+  const handlePayCash = async () => {
+    console.log("💵 PAY CASH CLICKED");
+  console.log("Current bill:", bill);
 
-      if (
-        !updatedOrder?.sessionId ||
-        updatedOrder.sessionId !==
-          order.sessionId
-      ) {
-        return;
+  if (payingCash) {
+    return;
+  }
+
+  if (!bill?._id) {
+    alert(
+      "Bill ID is missing. Please request the bill again."
+    );
+
+    console.error(
+      "❌ Bill ID missing:",
+      bill
+    );
+
+    return;
+  }
+
+  if (bill.paymentStatus === "PAID") {
+    alert("This bill is already paid.");
+    return;
+  }
+
+  try {
+    setPayingCash(true);
+
+    console.log(
+      "💵 Sending cash payment:",
+      bill._id
+    );
+
+    const response = await fetch(
+      `${API_URL}/api/bill-payments/cash`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+
+        body: JSON.stringify({
+          billId: bill._id,
+        }),
       }
+    );
 
-      setOrders((currentOrders) =>
-        currentOrders.map(
-          (currentOrder) =>
-            currentOrder._id ===
-            updatedOrder._id
-              ? updatedOrder
-              : currentOrder
-        )
+    const data =
+      await response.json();
+
+    console.log(
+      "💵 Cash payment response:",
+      data
+    );
+
+    if (!response.ok || !data.success) {
+      throw new Error(
+        data.message ||
+          "Cash payment failed."
       );
+    }
 
-      setOrder((currentOrder) => {
-        if (
-          !currentOrder ||
-          currentOrder._id !==
-            updatedOrder._id
-        ) {
-          return currentOrder;
-        }
+    setBill(data.bill);
 
-        localStorage.setItem(
-          "currentOrder",
-          JSON.stringify(updatedOrder)
+    alert(
+      "💵 Payment successful!\n\n🧾 Receipt is being printed."
+    );
+
+  } catch (error) {
+    console.error(
+      "❌ Cash payment error:",
+      error
+    );
+
+    alert(
+      error.message ||
+        "Unable to process cash payment."
+    );
+
+  } finally {
+    setPayingCash(false);
+  }
+};
+
+
+// =========================
+// RAZORPAY PAYMENT
+// =========================
+
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    if (
+      document.querySelector(
+        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+      )
+    ) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+
+    script.src =
+      "https://checkout.razorpay.com/v1/checkout.js";
+
+    script.onload = () => {
+      resolve(true);
+    };
+
+    script.onerror = () => {
+      resolve(false);
+    };
+
+    document.body.appendChild(script);
+  });
+};
+
+
+const handlePayOnline = async () => {
+  console.log("💳 PAY ONLINE CLICKED");
+  console.log("Current bill:", bill);
+
+  if (payingOnline) {
+    return;
+  }
+
+  if (!bill?._id) {
+    alert(
+      "Bill ID is missing. Please request the bill again."
+    );
+    console.error(
+      "❌ Bill ID missing:",
+      bill
+    );
+    return;
+  }
+
+  if (bill.paymentStatus === "PAID") {
+    alert("This bill is already paid.");
+    return;
+  }
+
+  try {
+    setPayingOnline(true);
+
+    const razorpayLoaded =
+      await loadRazorpayScript();
+
+    if (!razorpayLoaded) {
+      throw new Error(
+        "Unable to load Razorpay. Please check your internet connection."
+      );
+    }
+
+    const response = await fetch(
+      `${API_URL}/api/bill-payments/create-order`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          billId: bill._id,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.message ||
+          "Failed to create payment order."
+      );
+    }
+
+    console.log(
+      "💳 Razorpay order:",
+      data
+    );
+
+    const options = {
+      key: data.key,
+
+      amount: data.amount,
+
+      currency:
+        data.currency || "INR",
+
+      name:
+        bill.restaurantName ||
+        "DineFlow Restaurant",
+
+      description:
+        `Bill #${bill.billNumber}`,
+
+      order_id:
+        data.orderId,
+
+      handler:
+        async function (paymentResponse) {
+          try {
+            console.log(
+              "💳 Razorpay payment response:",
+              paymentResponse
+            );
+
+            const verifyResponse =
+              await fetch(
+                `${API_URL}/api/bill-payments/verify`,
+                {
+                  method: "POST",
+
+                  headers: {
+                    "Content-Type":
+                      "application/json",
+                  },
+
+                  body: JSON.stringify({
+                    billId:
+                      bill._id,
+
+                    razorpay_order_id:
+                      paymentResponse.razorpay_order_id,
+
+                    razorpay_payment_id:
+                      paymentResponse.razorpay_payment_id,
+
+                    razorpay_signature:
+                      paymentResponse.razorpay_signature,
+                  }),
+                }
+              );
+
+            const verifyData =
+              await verifyResponse.json();
+
+            if (!verifyResponse.ok) {
+              throw new Error(
+                verifyData.message ||
+                  "Payment verification failed."
+              );
+            }
+
+            console.log(
+              "✅ Payment verified:",
+              verifyData
+            );
+
+            setBill(
+              verifyData.bill
+            );
+
+            setSession(
+              (currentSession) =>
+                currentSession
+                  ? {
+                      ...currentSession,
+                      status: "closed",
+                    }
+                  : currentSession
+            );
+
+            localStorage.setItem(
+              "dineflowLastPayment",
+              JSON.stringify({
+                billId:
+                  bill._id,
+
+                paymentId:
+                  paymentResponse.razorpay_payment_id,
+
+                orderId:
+                  paymentResponse.razorpay_order_id,
+
+                status: "PAID",
+              })
+            );
+
+            alert(
+              "Payment successful! 🎉"
+            );
+
+          } catch (error) {
+            console.error(
+              "❌ Payment verification failed:",
+              error
+            );
+
+            alert(
+              error.message ||
+                "Payment verification failed."
+            );
+
+          } finally {
+            setPayingOnline(false);
+          }
+        },
+
+      modal: {
+        ondismiss: () => {
+          console.log(
+            "💳 Razorpay checkout closed."
+          );
+
+          setPayingOnline(false);
+        },
+      },
+
+      prefill: {
+        name: "",
+        email: "",
+        contact: "",
+      },
+
+      theme: {
+        color: "#4b2918",
+      },
+    };
+
+    const razorpay =
+      new window.Razorpay(options);
+
+    razorpay.on(
+      "payment.failed",
+      function (response) {
+        console.error(
+          "❌ Razorpay payment failed:",
+          response.error
         );
 
-        return updatedOrder;
-      });
-    };
+        alert(
+          response.error?.description ||
+            "Payment failed. Please try again."
+        );
 
-    // =========================
-    // BILL REQUESTED
-    // =========================
-
-    const handleBillRequested = (
-      billData
-    ) => {
-      console.log(
-        "🧾 Bill requested:",
-        billData
-      );
-
-      if (
-        !billData?.sessionId ||
-        billData.sessionId !==
-          order.sessionId
-      ) {
-        return;
+        setPayingOnline(false);
       }
-
-      setBill(billData);
-
-      setSession((currentSession) =>
-        currentSession
-          ? {
-              ...currentSession,
-              status:
-                "bill_requested",
-            }
-          : currentSession
-      );
-
-      localStorage.setItem(
-        "tableSession",
-        JSON.stringify({
-          sessionId:
-            billData.sessionId,
-          orderId:
-            billData.orderId,
-          tableId:
-            billData.tableId,
-          tableNumber:
-            billData.tableNumber,
-          orderCount:
-            billData.orderCount,
-          status:
-            "bill_requested",
-        })
-      );
-    };
-
-    socket.on(
-      "order-status-updated",
-      handleStatusUpdate
     );
 
-    socket.on(
-      "bill-requested",
-      handleBillRequested
+    razorpay.open();
+
+  } catch (error) {
+    console.error(
+      "❌ Online payment failed:",
+      error
     );
 
-    return () => {
-      socket.off(
-        "order-status-updated",
-        handleStatusUpdate
-      );
+    alert(
+      error.message ||
+        "Unable to start online payment."
+    );
 
-      socket.off(
-        "bill-requested",
-        handleBillRequested
-      );
-    };
-  }, [
-    order?.restaurantId,
-    order?.sessionId,
-  ]);
-
+    setPayingOnline(false);
+  }
+};
   // =========================
   // ORDER MORE FOOD
   // =========================
@@ -1035,107 +1281,302 @@ function OrderStatus() {
       ========================= */}
 
       {bill && (
+  <div
+    style={{
+      width: "100%",
+      maxWidth: "650px",
+      margin: "0 auto 22px",
+      padding: "24px",
+      boxSizing: "border-box",
+      background: "#ffffff",
+      borderRadius: "22px",
+      boxShadow:
+        "0 15px 40px rgba(63, 35, 18, 0.10)",
+    }}
+  >
+    <h2
+      style={{
+        margin: "0 0 6px",
+        color: "#4b2918",
+        fontFamily: "Georgia, serif",
+        fontSize: "24px",
+      }}
+    >
+      Final Bill
+    </h2>
+
+    <div
+      style={{
+        color: "#806653",
+        fontSize: "13px",
+        marginBottom: "18px",
+      }}
+    >
+      Bill #{bill.billNumber}
+    </div>
+
+    {/* ITEMS */}
+
+    {bill.items?.map(
+      (item, index) => (
         <div
+          key={
+            item.id ||
+            `${item.name}-${index}`
+          }
           style={{
-            width: "100%",
-            maxWidth: "650px",
-            margin: "0 auto 22px",
-            padding: "24px",
-            boxSizing: "border-box",
-            background: "#ffffff",
-            borderRadius: "22px",
-            boxShadow:
-              "0 15px 40px rgba(63, 35, 18, 0.10)",
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems: "center",
+            gap: "15px",
+            padding: "12px 0",
+            borderBottom:
+              index ===
+              bill.items.length - 1
+                ? "none"
+                : "1px solid #eadaca",
           }}
         >
-          <h2
-            style={{
-              margin:
-                "0 0 18px",
-              color: "#4b2918",
-              fontFamily:
-                "Georgia, serif",
-              fontSize: "24px",
-            }}
-          >
-            Final Bill
-          </h2>
-
-          {bill.items?.map(
-            (item, index) => (
-              <div
-                key={
-                  item.id ||
-                  `${item.name}-${index}`
-                }
-                style={{
-                  display: "flex",
-                  justifyContent:
-                    "space-between",
-                  alignItems:
-                    "center",
-                  gap: "15px",
-                  padding:
-                    "12px 0",
-                  borderBottom:
-                    index ===
-                    bill.items
-                      .length -
-                      1
-                      ? "none"
-                      : "1px solid #eadaca",
-                }}
-              >
-                <div
-                  style={{
-                    color:
-                      "#3d2415",
-                    fontSize:
-                      "15px",
-                  }}
-                >
-                  {item.name} ×{" "}
-                  {item.quantity}
-                </div>
-
-                <strong
-                  style={{
-                    color:
-                      "#4b2918",
-                  }}
-                >
-                  ₹
-                  {item.price *
-                    item.quantity}
-                </strong>
-              </div>
-            )
-          )}
-
           <div
             style={{
-              display: "flex",
-              justifyContent:
-                "space-between",
-              marginTop: "18px",
-              paddingTop: "18px",
-              borderTop:
-                "2px solid #4b2918",
-              color: "#4b2918",
-              fontSize: "22px",
-              fontWeight: "800",
+              color: "#3d2415",
+              fontSize: "15px",
             }}
           >
-            <span>
-              Total
-            </span>
-
-            <span>
-              ₹{bill.totalPrice}
-            </span>
+            {item.name} ×{" "}
+            {item.quantity}
           </div>
+
+          <strong
+            style={{
+              color: "#4b2918",
+            }}
+          >
+            ₹
+            {Number(
+              item.price *
+                item.quantity
+            ).toLocaleString(
+              "en-IN"
+            )}
+          </strong>
         </div>
-      )}
+      )
+    )}
+
+    {/* BILL BREAKDOWN */}
+
+    <div
+      style={{
+        marginTop: "18px",
+        paddingTop: "18px",
+        borderTop:
+          "1px solid #eadaca",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          marginBottom: "10px",
+          color: "#806653",
+        }}
+      >
+        <span>Subtotal</span>
+
+        <strong>
+          ₹
+          {Number(
+            bill.subtotal || 0
+          ).toLocaleString(
+            "en-IN",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          )}
+        </strong>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          marginBottom: "10px",
+          color: "#806653",
+        }}
+      >
+        <span>CGST @ 2.5%</span>
+
+        <strong>
+          ₹
+          {Number(
+            bill.cgst || 0
+          ).toLocaleString(
+            "en-IN",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          )}
+        </strong>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          marginBottom: "10px",
+          color: "#806653",
+        }}
+      >
+        <span>SGST @ 2.5%</span>
+
+        <strong>
+          ₹
+          {Number(
+            bill.sgst || 0
+          ).toLocaleString(
+            "en-IN",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          )}
+        </strong>
+      </div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          marginTop: "16px",
+          paddingTop: "16px",
+          borderTop:
+            "2px solid #4b2918",
+          color: "#4b2918",
+          fontSize: "22px",
+          fontWeight: "800",
+        }}
+      >
+        <span>Total</span>
+
+        <span>
+          ₹
+          {Number(
+            bill.total
+          ).toLocaleString(
+            "en-IN",
+            {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }
+          )}
+        </span>
+      </div>
+    </div>
+
+    {/* PAYMENT STATUS */}
+
+    {bill.paymentStatus ===
+    "PAID" ? (
+      <div
+        style={{
+          marginTop: "20px",
+          padding: "15px",
+          borderRadius: "14px",
+          background: "#e8f8ed",
+          color: "#218838",
+          textAlign: "center",
+          fontWeight: "700",
+        }}
+      >
+        ✅ Payment Successful
+        <br />
+
+        <span
+          style={{
+            fontSize: "13px",
+          }}
+        >
+          Payment Method:{" "}
+          {bill.paymentMethod ||
+            "ONLINE"}
+        </span>
+      </div>
+    ) : (
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+          marginTop: "20px",
+        }}
+      >
+        {/* CASH */}
+        <button
+          type="button"
+          onClick={handlePayCash}
+          disabled={payingCash || payingOnline}
+          style={{
+            width: "100%",
+            padding: "16px 20px",
+            border: "none",
+            borderRadius: "14px",
+            background:
+              payingCash
+                ? "#b9a99e"
+                : "#2e7d32",
+            color: "#ffffff",
+            fontSize: "17px",
+            fontWeight: "800",
+            cursor:
+              payingCash || payingOnline
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          {payingCash
+            ? "Processing Cash..."
+            : "💵 Pay with Cash"}
+        </button>
+
+        {/* ONLINE */}
+        <button
+          type="button"
+          onClick={handlePayOnline}
+          disabled={payingCash || payingOnline}
+          style={{
+            width: "100%",
+            padding: "16px 20px",
+            border: "none",
+            borderRadius: "14px",
+            background:
+              payingOnline
+                ? "#b9a99e"
+                : "#4b2918",
+            color: "#ffffff",
+            fontSize: "17px",
+            fontWeight: "800",
+            cursor:
+              payingCash || payingOnline
+                ? "not-allowed"
+                : "pointer",
+          }}
+        >
+          {payingOnline
+            ? "Opening Payment..."
+            : "💳 Pay Online"}
+        </button>
+      </div>
+    )}
+  </div>
+)}
 
       {/* =========================
           ACTION BUTTONS
@@ -1244,9 +1685,10 @@ function OrderStatus() {
 
           <br />
 
-          Your final bill has been
-          requested. Please wait for
-          the restaurant staff.
+          Your final bill is ready.
+          <br />
+
+          Please complete your payment above.
         </div>
       )}
     </div>

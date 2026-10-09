@@ -1329,61 +1329,100 @@
   cursor: pointer;
 }
 
+/* =========================================
+   HORIZONTAL SESSION SLIDER
+========================================= */
+
 .active-dining-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: flex;
   gap: 18px;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 4px 18px;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+
+  /* Hide scrollbar */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
+.active-dining-grid::-webkit-scrollbar {
+  display: none;
+}
+
+/* =========================================
+   SESSION CARD
+========================================= */
+
 .active-dining-card {
-  min-width: 0;
-  padding: 28px;
+  flex: 0 0 310px;
+  width: 310px;
+  min-width: 310px;
+
+  padding: 22px;
+
   border: 1px solid #e3e7ec;
-  border-radius: 22px;
+  border-radius: 20px;
   background: #ffffff;
+
   box-shadow: 0 5px 18px rgba(20, 20, 20, 0.025);
+
+  scroll-snap-align: start;
 }
 
 .active-dining-card.bill-requested {
   border-color: #e8e2d3;
 }
 
+/* =========================================
+   CARD HEADER
+========================================= */
+
 .active-dining-card-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 14px;
-  padding-bottom: 22px;
+  gap: 12px;
+
+  padding-bottom: 18px;
   border-bottom: 1px solid #edf0f3;
 }
 
 .active-dining-label {
   display: block;
-  margin-bottom: 7px;
+  margin-bottom: 6px;
+
   color: #6f7e95;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.4px;
 }
 
 .active-dining-card-header h3 {
   margin: 0;
+
   color: #171717;
-  font-size: 50px;
+  font-size: 38px;
   line-height: 1;
-  letter-spacing: -2px;
+  letter-spacing: -1.5px;
 }
 
 .active-dining-status {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
-  padding: 0 13px;
+
+  min-height: 30px;
+  padding: 0 11px;
+
   border-radius: 999px;
-  font-size: 11px;
+
+  font-size: 10px;
   font-weight: 800;
-  letter-spacing: .3px;
+  letter-spacing: 0.3px;
+
   white-space: nowrap;
 }
 
@@ -1397,58 +1436,90 @@
   color: #a36a00;
 }
 
+/* =========================================
+   METRICS
+========================================= */
+
 .active-dining-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 22px 0 28px;
+
+  gap: 8px;
+
+  margin: 18px 0 20px;
 }
 
 .active-dining-metrics > div {
   min-width: 0;
-  padding: 16px;
-  border-radius: 15px;
+
+  padding: 12px 10px;
+
+  border-radius: 13px;
   background: #f2f5f9;
 }
 
 .active-dining-metrics span {
   display: block;
-  margin-bottom: 7px;
+
+  margin-bottom: 5px;
+
   color: #73839b;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
 }
 
 .active-dining-metrics strong {
   display: block;
+
   color: #171717;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.1;
+
   white-space: nowrap;
 }
 
+/* =========================================
+   BILL REQUEST ALERT
+========================================= */
+
 .active-dining-bill-alert {
-  margin-bottom: 16px;
-  padding: 15px 17px;
-  border-radius: 15px;
+  margin-bottom: 13px;
+
+  padding: 12px 14px;
+
+  border-radius: 13px;
+
   background: #fff3d4;
   color: #9a6500;
-  font-size: 14px;
+
+  font-size: 12px;
   line-height: 1.35;
   font-weight: 700;
 }
 
+/* =========================================
+   VIEW ORDERS BUTTON
+========================================= */
+
 .active-dining-orders-button {
   width: 100%;
-  min-height: 48px;
+  min-height: 44px;
+
   border: 1px solid #e0e5eb;
-  border-radius: 13px;
+  border-radius: 12px;
+
   background: #ffffff;
   color: #171717;
+
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
+
   cursor: pointer;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .active-dining-orders-button:hover,
@@ -1456,13 +1527,19 @@
   background: #f8f9fa;
 }
 
+/* =========================================
+   ORDER LIST
+========================================= */
+
 .active-dining-order-list {
-  margin-top: 18px;
+  margin-top: 16px;
+
   border-top: 1px solid #edf0f3;
 }
 
 .active-dining-order {
-  padding: 18px 0;
+  padding: 16px 0;
+
   border-bottom: 1px solid #edf0f3;
 }
 
@@ -1471,34 +1548,44 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
 .active-dining-order-top {
-  margin-bottom: 10px;
+  margin-bottom: 9px;
+
   color: #171717;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .active-dining-item {
-  padding: 5px 0;
+  padding: 4px 0;
+
   color: #708099;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .active-dining-item strong {
   color: #171717;
 }
 
+/* =========================================
+   EMPTY STATE
+========================================= */
+
 .active-dining-empty {
   min-height: 150px;
+
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+
   gap: 7px;
+
   border: 1px dashed #dce1e7;
   border-radius: 18px;
+
   background: #ffffff;
 }
 
@@ -1512,18 +1599,51 @@
   font-size: 13px;
 }
 
+/* =========================================
+   TABLET
+========================================= */
+
 @media (max-width: 1200px) {
-  .active-dining-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .active-dining-card {
+    flex-basis: 300px;
+    width: 300px;
+    min-width: 300px;
   }
 }
 
+/* =========================================
+   MOBILE
+========================================= */
+
 @media (max-width: 700px) {
   .active-dining-grid {
-    grid-template-columns: 1fr;
+    gap: 14px;
+    padding-bottom: 14px;
   }
 
   .active-dining-card {
-    padding: 20px;
+    flex: 0 0 285px;
+    width: 285px;
+    min-width: 285px;
+
+    padding: 18px;
+
+    border-radius: 18px;
+  }
+
+  .active-dining-card-header h3 {
+    font-size: 34px;
+  }
+
+  .active-dining-metrics {
+    gap: 7px;
+  }
+
+  .active-dining-metrics > div {
+    padding: 10px 8px;
+  }
+
+  .active-dining-metrics strong {
+    font-size: 15px;
   }
 }
