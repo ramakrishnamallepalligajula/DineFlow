@@ -1,33 +1,64 @@
 import crypto from "crypto";
 import PrinterDevice from "../models/PrinterDevice.js";
 import PrinterPairingCode from "../models/PrinterPairingCode.js";
-const ALPHABET="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const hash=v=>crypto.createHash("sha256").update(v).digest("hex");
-const code=()=>Array.from({length:6},()=>ALPHABET[crypto.randomInt(ALPHABET.length)]).join("");
-export async function createPairingCode(restaurantId){
- await PrinterPairingCode.updateMany({restaurantId,usedAt:null},{$set:{usedAt:new Date()}});
- const raw=code(); const expiresAt=new Date(Date.now()+10*60*1000);
- await PrinterPairingCode.create({restaurantId,codeHash:hash(raw),expiresAt});
- return {code:raw,expiresAt};
+import Printer from "../models/Printer.js";
+
+const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const hash = (value) =>
+  crypto.createHash("sha256").update(value).digest("hex");
+const generateCode = () =>
+  Array.from({ length: 6 }, () =>
+    ALPHABET[crypto.randomInt(ALPHABET.length)]
+  ).join("");
+
+export async function createPairingCode(restaurantId) {
+  await PrinterPairingCode.updateMany(
+    { restaurantId, usedAt: null },
+    { $set: { usedAt: new Date() } }
+  );
+  const raw = generateCode();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  await PrinterPairingCode.create({
+    restaurantId,
+    codeHash: hash(raw),
+    expiresAt,
+  });
+  return { code: raw, expiresAt };
 }
+
 export async function pairDevice({
   code: rawCode,
   name,
   type,
   capabilities = {},
+  role,
+  printerName,
+  printerAddress,
+  model = "",
 }) {
   if (!rawCode || !name || !type) {
-    const e = new Error("code, name and type are required");
-    e.statusCode = 400;
-    throw e;
+    const error = new Error("code, name and type are required");
+    error.statusCode = 400;
+    throw error;
   }
 
-  const normalizedCode = rawCode.trim().toUpperCase();
-  const normalizedName = name.trim();
+  const normalizedCode = String(rawCode).trim().toUpperCase();
+  const normalizedName = String(name).trim();
+  const normalizedRole = role
+    ? String(role).trim().toUpperCase()
+    : null;
 
-  // =========================================================
-  // 1. FIND VALID PAIRING CODE
-  // =========================================================
+  if (normalizedRole && !["KITCHEN", "BILLING"].includes(normalizedRole)) {
+    const error = new Error("role must be KITCHEN or BILLING");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (normalizedRole && (!printerAddress || !String(printerAddress).trim())) {
+    const error = new Error("printerAddress is required when assigning a printer role");
+    error.statusCode = 400;
+    throw error;
+  }
 
   const pairing = await PrinterPairingCode.findOne({
     codeHash: hash(normalizedCode),
@@ -36,161 +67,127 @@ export async function pairDevice({
   }).select("+codeHash");
 
   if (!pairing) {
-    const e = new Error("Invalid or expired pairing code");
-    e.statusCode = 401;
-    throw e;
+    const error = new Error("Invalid or expired pairing code");
+    error.statusCode = 401;
+    throw error;
   }
-
-  // =========================================================
-  // 2. CHECK IF DEVICE ALREADY EXISTS
-  // =========================================================
 
   let device = await PrinterDevice.findOne({
     restaurantId: pairing.restaurantId,
     name: normalizedName,
   });
 
-  // =========================================================
-  // 3. EXISTING DISABLED DEVICE
-  // =========================================================
-
   if (device?.status === "DISABLED") {
-    const e = new Error(
-      "This printer bridge is disabled. Enable it before pairing again."
+    const error = new Error(
+      "This printer device is disabled. An administrator must enable it before pairing again."
     );
-
-    e.statusCode = 403;
-
-    throw e;
+    error.statusCode = 403;
+    throw error;
   }
 
-  // =========================================================
-  // 4. GENERATE NEW DEVICE SECRET
-  // =========================================================
-
   const secret = crypto.randomBytes(32).toString("hex");
-
   const deviceData = {
     name: normalizedName,
-
     type,
-
     capabilities: {
       usb: !!capabilities.usb,
       network: !!capabilities.network,
       bluetooth: !!capabilities.bluetooth,
     },
-
     credentialHash: hash(secret),
-
     pairedAt: new Date(),
-
     status: "OFFLINE",
-
     disabledAt: null,
   };
 
-  // =========================================================
-  // 5. UPDATE EXISTING DEVICE
-  // =========================================================
-
   if (device) {
     device = await PrinterDevice.findOneAndUpdate(
-      {
-        _id: device._id,
-        restaurantId: pairing.restaurantId,
-      },
-      {
-        $set: deviceData,
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
+      { _id: device._id, restaurantId: pairing.restaurantId },
+      { $set: deviceData },
+      { new: true, runValidators: true }
     );
-  }
-
-  // =========================================================
-  // 6. CREATE NEW DEVICE
-  // =========================================================
-
-  else {
+  } else {
     try {
       device = await PrinterDevice.create({
         restaurantId: pairing.restaurantId,
         ...deviceData,
       });
     } catch (error) {
-      // -------------------------------------------------------
-      // Handle race condition
-      // -------------------------------------------------------
-
       if (error?.code === 11000) {
-        console.error(
-          "⚠️ Printer device already exists during pairing:",
-          error
-        );
-
-        const e = new Error(
-          "A printer bridge with this name is already paired."
-        );
-
-        e.statusCode = 409;
-
-        throw e;
+        const conflict = new Error("A printer device with this name is already paired.");
+        conflict.statusCode = 409;
+        throw conflict;
       }
-
       throw error;
     }
   }
 
-  // =========================================================
-  // 7. CONSUME PAIRING CODE
-  // =========================================================
-
   const consumed = await PrinterPairingCode.findOneAndUpdate(
-    {
-      _id: pairing._id,
-      usedAt: null,
-    },
-    {
-      $set: {
-        usedAt: new Date(),
-      },
-    },
-    {
-      new: true,
-    }
+    { _id: pairing._id, usedAt: null },
+    { $set: { usedAt: new Date() } },
+    { new: true }
   );
 
-  // =========================================================
-  // 8. SAFETY CHECK
-  // =========================================================
-
   if (!consumed) {
-    const e = new Error("Pairing code has already been used");
-
-    e.statusCode = 409;
-
-    throw e;
+    const error = new Error("Pairing code has already been used");
+    error.statusCode = 409;
+    throw error;
   }
 
-  // =========================================================
-  // 9. RETURN DEVICE CREDENTIALS
-  // =========================================================
+  let printer = null;
+  if (normalizedRole) {
+    // One Android station owns one local Bluetooth printer.
+    // Re-pairing the same station updates its role and printer address.
+    printer = await Printer.findOneAndUpdate(
+      {
+        restaurantId: pairing.restaurantId,
+        deviceId: device._id,
+      },
+      {
+        $set: {
+          name: String(printerName || `${normalizedRole} Printer`).trim(),
+          role: normalizedRole,
+          connection: {
+            type: "BLUETOOTH",
+            address: String(printerAddress).trim(),
+            port: 9100,
+          },
+          model: String(model || "").trim(),
+          enabled: true,
+          status: "UNKNOWN",
+          lastError: { code: null, message: null, at: null },
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+  }
 
   return {
     deviceId: device._id.toString(),
-
     restaurantId: device.restaurantId.toString(),
-
     deviceSecret: secret,
+    role: normalizedRole,
+    printerId: printer?._id?.toString() || null,
   };
 }
-export async function authenticateDevice(deviceId,secret){
- if(!deviceId||!secret)return null;
- const d=await PrinterDevice.findOne({_id:deviceId,status:{$ne:"DISABLED"}}).select("+credentialHash");
- if(!d?.credentialHash)return null;
- const a=Buffer.from(hash(secret),"hex"), b=Buffer.from(d.credentialHash,"hex");
- return a.length===b.length&&crypto.timingSafeEqual(a,b)?d:null;
+
+export async function authenticateDevice(deviceId, secret) {
+  if (!deviceId || !secret) return null;
+  const device = await PrinterDevice.findOne({
+    _id: deviceId,
+    status: { $ne: "DISABLED" },
+  }).select("+credentialHash");
+  if (!device?.credentialHash) return null;
+
+  const actual = Buffer.from(hash(secret), "hex");
+  const expected = Buffer.from(device.credentialHash, "hex");
+  return actual.length === expected.length &&
+    crypto.timingSafeEqual(actual, expected)
+    ? device
+    : null;
 }

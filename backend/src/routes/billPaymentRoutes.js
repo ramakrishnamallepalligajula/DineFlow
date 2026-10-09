@@ -54,11 +54,15 @@ router.post("/cash", async (req, res) => {
       });
     }
 
-    bill.paymentStatus = "PAID";
+    // Selecting cash requests a printed cash bill; it does not prove
+    // that the restaurant has collected the cash. Keep the bill unpaid
+    // until staff explicitly confirms collection.
     bill.paymentMethod = "CASH";
     bill.paymentReference = null;
-    bill.paidAt = new Date();
-    bill.status = "PAID";
+    bill.paidAt = null;
+    if (bill.status !== "PRINTED") {
+      bill.status = "REQUESTED";
+    }
 
     await bill.save();
 

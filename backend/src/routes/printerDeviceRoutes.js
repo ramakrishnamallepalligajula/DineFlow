@@ -28,6 +28,10 @@ router.post("/pair", async (req, res) => {
       name,
       type,
       capabilities,
+      role,
+      printerName,
+      printerAddress,
+      model,
     } = req.body;
 
     const result = await pairDevice({
@@ -35,6 +39,10 @@ router.post("/pair", async (req, res) => {
       name,
       type,
       capabilities,
+      role,
+      printerName,
+      printerAddress,
+      model,
     });
 
     return res.status(201).json({

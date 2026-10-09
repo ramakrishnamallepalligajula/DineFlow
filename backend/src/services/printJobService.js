@@ -128,6 +128,8 @@ const emitJob = async (printerNamespace, job) => {
 
     type: "PRINT_JOB",
 
+    jobType: job.type,
+
     jobId: job._id.toString(),
 
     printer: {
@@ -532,6 +534,13 @@ export async function createBillingPrintJob({
      BUILD BILLING PAYLOAD
   ======================================================= */
 
+  // A cash-request bill is a separate job from a final paid receipt.
+  // This lets a later successful online payment generate its own receipt.
+  const billingJobType =
+    bill.paymentMethod === "CASH" && bill.paymentStatus !== "PAID"
+      ? "BILL"
+      : "BILLING_RECEIPT";
+
   const payload = {
     sessionId:
       bill.sessionId,
@@ -610,6 +619,12 @@ export async function createBillingPrintJob({
 
     paymentMethod:
       bill.paymentMethod,
+
+    paymentStatus:
+      bill.paymentStatus,
+
+    billStatus:
+      bill.status,
   };
 
   /* =======================================================
@@ -638,7 +653,7 @@ export async function createBillingPrintJob({
         printer._id,
 
       type:
-        "BILLING_RECEIPT",
+        billingJobType,
 
       payload,
     });
@@ -691,7 +706,7 @@ export async function createBillingPrintJob({
           printer._id,
 
         type:
-          "BILLING_RECEIPT",
+          billingJobType,
       });
 
       if (!job) {

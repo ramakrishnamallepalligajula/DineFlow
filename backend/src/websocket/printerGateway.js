@@ -646,8 +646,7 @@ socket.on(
       ------------------------------------ */
 
       if (
-        job.type ===
-        "BILLING_RECEIPT"
+        ["BILLING_RECEIPT", "BILL"].includes(job.type)
       ) {
 
         await Bill.findOneAndUpdate(
