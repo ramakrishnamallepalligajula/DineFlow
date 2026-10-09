@@ -29,14 +29,25 @@ const emitJob = (printerNamespace, job) => {
   console.log("========================================");
   console.log("🖨️ PRINT JOB DELIVERY");
   console.log("========================================");
+
   console.log("Job ID:", job._id.toString());
   console.log("Job Type:", job.type);
   console.log("Job Status:", job.status);
-  console.log("Restaurant ID:", job.restaurantId?.toString());
-  console.log("Printer ID:", job.printerId?.toString());
+  console.log(
+    "Restaurant ID:",
+    job.restaurantId?.toString()
+  );
+  console.log(
+    "Printer ID:",
+    job.printerId?.toString()
+  );
   console.log("Device ID:", deviceId);
   console.log("Room:", roomName);
   console.log("Namespace:", printerNamespace.name);
+
+  /* =======================================================
+     CHECK CONNECTED PRINTER AGENT
+  ======================================================= */
 
   const socketsInRoom =
     printerNamespace.adapter.rooms.get(roomName);
@@ -60,17 +71,35 @@ const emitJob = (printerNamespace, job) => {
     return false;
   }
 
+  /* =======================================================
+     BUILD SOCKET PAYLOAD
+  ======================================================= */
+
   const payload = {
     version: 1,
+
     type: "PRINT_JOB",
+
     jobId: job._id.toString(),
+
     payload: job.payload?.toObject
       ? job.payload.toObject()
       : job.payload,
   };
 
-  console.log("📤 Event: printer:print-job");
-  console.log("📤 Payload Job ID:", payload.jobId);
+  console.log("");
+  console.log("📤 Sending printer:print-job");
+  console.log("📤 Job ID:", payload.jobId);
+  console.log("📤 Job Type:", job.type);
+
+  console.log(
+    "📤 Payload:",
+    JSON.stringify(payload.payload, null, 2)
+  );
+
+  /* =======================================================
+     EMIT TO DEVICE ROOM
+  ======================================================= */
 
   printerNamespace
     .to(roomName)
@@ -79,6 +108,7 @@ const emitJob = (printerNamespace, job) => {
       payload
     );
 
+  console.log("");
   console.log(
     `✅ printer:print-job emitted to ${socketCount} socket(s)`
   );
@@ -98,6 +128,30 @@ export async function createKitchenPrintJob({
   restaurant,
   io,
 }) {
+  console.log("");
+  console.log("========================================");
+  console.log("🍳 CREATING KITCHEN PRINT JOB");
+  console.log("========================================");
+
+  console.log(
+    "Restaurant ID:",
+    order.restaurantId?.toString()
+  );
+
+  console.log(
+    "Order ID:",
+    order._id?.toString()
+  );
+
+  console.log(
+    "Order Number:",
+    order.orderId
+  );
+
+  /* =======================================================
+     FIND KITCHEN PRINTER
+  ======================================================= */
+
   const printer = await Printer.findOne({
     restaurantId: order.restaurantId,
     role: "KITCHEN",
@@ -106,44 +160,101 @@ export async function createKitchenPrintJob({
     createdAt: 1,
   });
 
+  /* =======================================================
+     PRINTER NOT FOUND
+  ======================================================= */
+
   if (!printer) {
     console.log(
-      "⚠️ No enabled KITCHEN printer found"
+      "❌ No enabled KITCHEN printer found"
     );
+
+    console.log("========================================");
 
     return null;
   }
 
+  console.log("");
+  console.log("🖨️ KITCHEN PRINTER FOUND");
+  console.log({
+    printerId: printer._id?.toString(),
+    deviceId: printer.deviceId?.toString(),
+    role: printer.role,
+    enabled: printer.enabled,
+  });
+
+  /* =======================================================
+     VALIDATE DEVICE
+  ======================================================= */
+
+  if (!printer.deviceId) {
+    console.error(
+      "❌ Kitchen printer has no deviceId"
+    );
+
+    console.log("========================================");
+
+    return null;
+  }
+
+  /* =======================================================
+     BUILD KITCHEN PAYLOAD
+  ======================================================= */
+
   const payload = {
     orderNumber: order.orderId,
+
     orderSequence: order.orderSequence,
+
     orderType: order.type,
+
     tableNumber: order.tableNumber,
 
     items: order.items.map((item) => ({
       id: item.id,
+
       name: item.name,
+
       price: item.price,
+
       category: item.category || "",
+
       quantity: item.quantity,
     })),
 
     totalItems: order.totalItems,
+
     totalPrice: order.totalPrice,
   };
+
+  console.log("");
+  console.log("📦 KITCHEN PAYLOAD:");
+  console.log(
+    JSON.stringify(payload, null, 2)
+  );
+
+  /* =======================================================
+     CREATE PRINT JOB
+  ======================================================= */
 
   let job;
 
   try {
     job = await PrintJob.create({
       restaurantId: order.restaurantId,
+
       orderId: order._id,
+
       deviceId: printer.deviceId,
+
       printerId: printer._id,
+
       type: "KITCHEN_ORDER",
+
       payload,
     });
 
+    console.log("");
     console.log(
       "✅ Kitchen print job created:",
       job._id.toString()
@@ -151,46 +262,83 @@ export async function createKitchenPrintJob({
 
   } catch (error) {
 
-    if (error.code === 11000) {
+    /* =====================================================
+       DUPLICATE JOB
+    ===================================================== */
 
+    if (error.code === 11000) {
       console.log(
         "⚠️ Existing kitchen print job found"
       );
 
       job = await PrintJob.findOne({
         restaurantId: order.restaurantId,
+
         orderId: order._id,
+
         printerId: printer._id,
+
         type: "KITCHEN_ORDER",
       });
 
       if (!job) {
         throw error;
       }
+
+      console.log(
+        "Existing Job ID:",
+        job._id.toString()
+      );
+
+      console.log(
+        "Existing Job Status:",
+        job.status
+      );
+
     } else {
       throw error;
     }
   }
 
+  /* =======================================================
+     DELIVER TO ANDROID PRINTER BRIDGE
+  ======================================================= */
+
   if (io && job) {
+    const printerNamespace =
+      io.of("/printers");
 
-    /*
-      Only resend jobs that still need printing.
-    */
+    if (job.status === "PENDING") {
 
-    if (
-      job.status === "PENDING"
-    ) {
-      emitJob(
-        io.of("/printers"),
+      console.log("");
+      console.log(
+        "📤 Delivering kitchen job to printer agent..."
+      );
+
+      const delivered = emitJob(
+        printerNamespace,
         job
       );
+
+      if (delivered) {
+        console.log(
+          "✅ Kitchen job sent to Android printer bridge"
+        );
+      } else {
+        console.log(
+          "⚠️ Kitchen job was NOT delivered"
+        );
+      }
+
     } else {
+
       console.log(
         `ℹ️ Kitchen job ${job._id} is already ${job.status}`
       );
     }
   }
+
+  console.log("========================================");
 
   return job;
 }
@@ -225,10 +373,9 @@ export async function createBillingPrintJob({
     bill.billNumber
   );
 
-
-  /* -----------------------------------------
+  /* =======================================================
      FIND BILLING PRINTER
-  ----------------------------------------- */
+  ======================================================= */
 
   const printer = await Printer.findOne({
     restaurantId: bill.restaurantId,
@@ -238,10 +385,8 @@ export async function createBillingPrintJob({
     createdAt: 1,
   });
 
-
-  console.log(
-    "🖨️ BILLING PRINTER LOOKUP:"
-  );
+  console.log("");
+  console.log("🖨️ BILLING PRINTER LOOKUP:");
 
   console.log({
     restaurantId:
@@ -263,9 +408,11 @@ export async function createBillingPrintJob({
       printer?.enabled,
   });
 
+  /* =======================================================
+     PRINTER NOT FOUND
+  ======================================================= */
 
   if (!printer) {
-
     console.log(
       "❌ No enabled BILLING printer configured"
     );
@@ -275,13 +422,25 @@ export async function createBillingPrintJob({
     return null;
   }
 
+  /* =======================================================
+     VALIDATE DEVICE
+  ======================================================= */
 
-  /* -----------------------------------------
-     BUILD PRINT PAYLOAD
-  ----------------------------------------- */
+  if (!printer.deviceId) {
+    console.error(
+      "❌ Billing printer has no deviceId"
+    );
+
+    console.log("========================================");
+
+    return null;
+  }
+
+  /* =======================================================
+     BUILD BILLING PAYLOAD
+  ======================================================= */
 
   const payload = {
-
     sessionId:
       bill.sessionId,
 
@@ -356,30 +515,27 @@ export async function createBillingPrintJob({
 
     totalPrice:
       bill.total,
-      
-    paymentMethod: 
+
+    paymentMethod:
       bill.paymentMethod,
   };
 
-
-  /* -----------------------------------------
-     CREATE PRINT JOB
-  ----------------------------------------- */
+  /* =======================================================
+     CREATE BILLING PRINT JOB
+  ======================================================= */
 
   let job;
 
   try {
-
     job = await PrintJob.create({
-
       restaurantId:
         bill.restaurantId,
 
       /*
-        Billing job uses Bill._id
-        because PrintJob.orderId is
-        the generic source document ID.
-      */
+       * Billing job uses Bill._id
+       * because PrintJob.orderId is
+       * the generic source document ID.
+       */
       orderId:
         bill._id,
 
@@ -394,7 +550,6 @@ export async function createBillingPrintJob({
 
       payload,
     });
-
 
     console.log("");
     console.log(
@@ -421,12 +576,11 @@ export async function createBillingPrintJob({
         job.status,
     });
 
-
   } catch (error) {
 
-    /* -----------------------------------------
+    /* =====================================================
        DUPLICATE JOB
-    ----------------------------------------- */
+    ===================================================== */
 
     if (error.code === 11000) {
 
@@ -435,7 +589,6 @@ export async function createBillingPrintJob({
       );
 
       job = await PrintJob.findOne({
-
         restaurantId:
           bill.restaurantId,
 
@@ -448,7 +601,6 @@ export async function createBillingPrintJob({
         type:
           "BILLING_RECEIPT",
       });
-
 
       if (!job) {
         throw error;
@@ -466,27 +618,18 @@ export async function createBillingPrintJob({
       });
 
     } else {
-
       throw error;
     }
   }
 
-
-  /* -----------------------------------------
-     DELIVER JOB
-  ----------------------------------------- */
+  /* =======================================================
+     DELIVER BILLING JOB
+  ======================================================= */
 
   if (io && job) {
 
     const printerNamespace =
       io.of("/printers");
-
-    /*
-      IMPORTANT:
-      If the job is still pending,
-      deliver it even if it was created
-      during an earlier request.
-    */
 
     if (job.status === "PENDING") {
 
@@ -494,20 +637,29 @@ export async function createBillingPrintJob({
         "📤 Delivering billing job to printer agent..."
       );
 
-      emitJob(
-        printerNamespace,
-        job
-      );
+      const delivered =
+        emitJob(
+          printerNamespace,
+          job
+        );
+
+      if (delivered) {
+        console.log(
+          "✅ Billing job sent to printer bridge"
+        );
+      } else {
+        console.log(
+          "⚠️ Billing job was NOT delivered"
+        );
+      }
 
     } else {
 
       console.log(
         `ℹ️ Billing job ${job._id} is already ${job.status}`
       );
-
     }
   }
-
 
   console.log(
     "========================================"
@@ -526,6 +678,7 @@ export async function deliverPendingJobs(
   deviceId
 ) {
   console.log("");
+
   console.log(
     "📦 Checking pending jobs for device:",
     deviceId.toString()
@@ -534,6 +687,7 @@ export async function deliverPendingJobs(
   const jobs =
     await PrintJob.find({
       deviceId,
+
       status: "PENDING",
     })
       .sort({
@@ -541,11 +695,9 @@ export async function deliverPendingJobs(
       })
       .limit(50);
 
-
   console.log(
     `📦 Found ${jobs.length} pending job(s)`
   );
-
 
   let delivered = 0;
 
@@ -562,11 +714,9 @@ export async function deliverPendingJobs(
     }
   }
 
-
   console.log(
     `📤 Delivered ${delivered}/${jobs.length} pending job(s)`
   );
-
 
   return delivered;
 }
