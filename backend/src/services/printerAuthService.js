@@ -22,8 +22,15 @@ export async function pairDevice({
     throw e;
   }
 
+  const normalizedCode = rawCode.trim().toUpperCase();
+  const normalizedName = name.trim();
+
+  // =========================================================
+  // 1. FIND VALID PAIRING CODE
+  // =========================================================
+
   const pairing = await PrinterPairingCode.findOne({
-    codeHash: hash(rawCode.trim().toUpperCase()),
+    codeHash: hash(normalizedCode),
     usedAt: null,
     expiresAt: { $gt: new Date() },
   }).select("+codeHash");
@@ -34,49 +41,65 @@ export async function pairDevice({
     throw e;
   }
 
-  // Generate a new secret for this pairing.
+  // =========================================================
+  // 2. CHECK IF DEVICE ALREADY EXISTS
+  // =========================================================
+
+  let device = await PrinterDevice.findOne({
+    restaurantId: pairing.restaurantId,
+    name: normalizedName,
+  });
+
+  // =========================================================
+  // 3. EXISTING DISABLED DEVICE
+  // =========================================================
+
+  if (device?.status === "DISABLED") {
+    const e = new Error(
+      "This printer bridge is disabled. Enable it before pairing again."
+    );
+
+    e.statusCode = 403;
+
+    throw e;
+  }
+
+  // =========================================================
+  // 4. GENERATE NEW DEVICE SECRET
+  // =========================================================
+
   const secret = crypto.randomBytes(32).toString("hex");
 
   const deviceData = {
-    name: name.trim(),
+    name: normalizedName,
+
     type,
+
     capabilities: {
       usb: !!capabilities.usb,
       network: !!capabilities.network,
       bluetooth: !!capabilities.bluetooth,
     },
+
     credentialHash: hash(secret),
+
     pairedAt: new Date(),
+
     status: "OFFLINE",
+
     disabledAt: null,
   };
 
-  /*
-   * Re-pair an existing device if the same
-   * restaurant + device name already exists.
-   *
-   * This preserves the existing deviceId and
-   * any printers linked to that device.
-   */
-  let device = await PrinterDevice.findOne({
-    restaurantId: pairing.restaurantId,
-    name: name.trim(),
-  });
+  // =========================================================
+  // 5. UPDATE EXISTING DEVICE
+  // =========================================================
 
   if (device) {
-    // Never automatically revive a deliberately
-    // disabled device.
-    if (device.status === "DISABLED") {
-      const e = new Error(
-        "This printer bridge is disabled. Enable it before pairing again."
-      );
-
-      e.statusCode = 403;
-      throw e;
-    }
-
-    device = await PrinterDevice.findByIdAndUpdate(
-      device._id,
+    device = await PrinterDevice.findOneAndUpdate(
+      {
+        _id: device._id,
+        restaurantId: pairing.restaurantId,
+      },
       {
         $set: deviceData,
       },
@@ -85,21 +108,82 @@ export async function pairDevice({
         runValidators: true,
       }
     );
-  } else {
-    // First-time device registration.
-    device = await PrinterDevice.create({
-      restaurantId: pairing.restaurantId,
-      ...deviceData,
-    });
   }
 
-  // Pairing code is single-use.
-  pairing.usedAt = new Date();
-  await pairing.save();
+  // =========================================================
+  // 6. CREATE NEW DEVICE
+  // =========================================================
+
+  else {
+    try {
+      device = await PrinterDevice.create({
+        restaurantId: pairing.restaurantId,
+        ...deviceData,
+      });
+    } catch (error) {
+      // -------------------------------------------------------
+      // Handle race condition
+      // -------------------------------------------------------
+
+      if (error?.code === 11000) {
+        console.error(
+          "⚠️ Printer device already exists during pairing:",
+          error
+        );
+
+        const e = new Error(
+          "A printer bridge with this name is already paired."
+        );
+
+        e.statusCode = 409;
+
+        throw e;
+      }
+
+      throw error;
+    }
+  }
+
+  // =========================================================
+  // 7. CONSUME PAIRING CODE
+  // =========================================================
+
+  const consumed = await PrinterPairingCode.findOneAndUpdate(
+    {
+      _id: pairing._id,
+      usedAt: null,
+    },
+    {
+      $set: {
+        usedAt: new Date(),
+      },
+    },
+    {
+      new: true,
+    }
+  );
+
+  // =========================================================
+  // 8. SAFETY CHECK
+  // =========================================================
+
+  if (!consumed) {
+    const e = new Error("Pairing code has already been used");
+
+    e.statusCode = 409;
+
+    throw e;
+  }
+
+  // =========================================================
+  // 9. RETURN DEVICE CREDENTIALS
+  // =========================================================
 
   return {
     deviceId: device._id.toString(),
+
     restaurantId: device.restaurantId.toString(),
+
     deviceSecret: secret,
   };
 }
