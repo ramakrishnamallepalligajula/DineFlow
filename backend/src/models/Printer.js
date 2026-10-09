@@ -37,11 +37,21 @@ const printerSchema = new mongoose.Schema(
         required: true,
       },
 
-      // Optional metadata. Do not store credentials here.
+      // Network IP / hostname or Bluetooth/USB address.
+      // Do not store credentials here.
       address: {
         type: String,
         trim: true,
         default: "",
+      },
+
+      // Used by NETWORK printers.
+      // Standard ESC/POS printers commonly use 9100.
+      port: {
+        type: Number,
+        default: 9100,
+        min: 1,
+        max: 65535,
       },
     },
 

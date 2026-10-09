@@ -5,7 +5,7 @@ import Printer from "../models/Printer.js";
    EMIT PRINT JOB TO PRINTER AGENT
 ========================================================= */
 
-const emitJob = (printerNamespace, job) => {
+const emitJob = async (printerNamespace, job) => {
   if (!printerNamespace) {
     console.error("❌ Printer namespace is missing");
     return false;
@@ -33,17 +33,60 @@ const emitJob = (printerNamespace, job) => {
   console.log("Job ID:", job._id.toString());
   console.log("Job Type:", job.type);
   console.log("Job Status:", job.status);
+
   console.log(
     "Restaurant ID:",
     job.restaurantId?.toString()
   );
+
   console.log(
     "Printer ID:",
     job.printerId?.toString()
   );
+
   console.log("Device ID:", deviceId);
   console.log("Room:", roomName);
   console.log("Namespace:", printerNamespace.name);
+
+  /* =======================================================
+     FIND PRINTER CONFIGURATION
+  ======================================================= */
+
+  const printer = await Printer.findOne({
+    _id: job.printerId,
+    restaurantId: job.restaurantId,
+    enabled: true,
+  }).select(
+    "_id name role model connection"
+  );
+
+  if (!printer) {
+    console.error(
+      "❌ Printer configuration not found or disabled:",
+      job.printerId?.toString()
+    );
+
+    return false;
+  }
+
+  if (!printer.connection?.type) {
+    console.error(
+      "❌ Printer has no connection type:",
+      printer._id.toString()
+    );
+
+    return false;
+  }
+
+  console.log("🖨️ Printer configuration:", {
+    printerId: printer._id.toString(),
+    name: printer.name,
+    role: printer.role,
+    model: printer.model || "",
+    connectionType: printer.connection.type,
+    address: printer.connection.address || "",
+    port: printer.connection.port || 9100,
+  });
 
   /* =======================================================
      CHECK CONNECTED PRINTER AGENT
@@ -55,7 +98,10 @@ const emitJob = (printerNamespace, job) => {
   const socketCount =
     socketsInRoom?.size || 0;
 
-  console.log("Connected sockets:", socketCount);
+  console.log(
+    "Connected sockets:",
+    socketCount
+  );
 
   if (socketCount === 0) {
     console.log(
@@ -66,7 +112,9 @@ const emitJob = (printerNamespace, job) => {
       "⚠️ Job remains PENDING and will be delivered when agent reconnects."
     );
 
-    console.log("========================================");
+    console.log(
+      "========================================"
+    );
 
     return false;
   }
@@ -82,6 +130,26 @@ const emitJob = (printerNamespace, job) => {
 
     jobId: job._id.toString(),
 
+    printer: {
+      id: printer._id.toString(),
+
+      name: printer.name,
+
+      role: printer.role,
+
+      model: printer.model || "",
+
+      connection: {
+        type: printer.connection.type,
+
+        address:
+          printer.connection.address || "",
+
+        port:
+          printer.connection.port || 9100,
+      },
+    },
+
     payload: job.payload?.toObject
       ? job.payload.toObject()
       : job.payload,
@@ -89,12 +157,33 @@ const emitJob = (printerNamespace, job) => {
 
   console.log("");
   console.log("📤 Sending printer:print-job");
-  console.log("📤 Job ID:", payload.jobId);
-  console.log("📤 Job Type:", job.type);
+
+  console.log(
+    "📤 Job ID:",
+    payload.jobId
+  );
+
+  console.log(
+    "📤 Job Type:",
+    job.type
+  );
+
+  console.log(
+    "📤 Printer:",
+    JSON.stringify(
+      payload.printer,
+      null,
+      2
+    )
+  );
 
   console.log(
     "📤 Payload:",
-    JSON.stringify(payload.payload, null, 2)
+    JSON.stringify(
+      payload.payload,
+      null,
+      2
+    )
   );
 
   /* =======================================================
@@ -109,11 +198,14 @@ const emitJob = (printerNamespace, job) => {
     );
 
   console.log("");
+
   console.log(
     `✅ printer:print-job emitted to ${socketCount} socket(s)`
   );
 
-  console.log("========================================");
+  console.log(
+    "========================================"
+  );
 
   return true;
 };
@@ -638,7 +730,7 @@ export async function createBillingPrintJob({
       );
 
       const delivered =
-        emitJob(
+        await emitJob(
           printerNamespace,
           job
         );
@@ -704,7 +796,7 @@ export async function deliverPendingJobs(
   for (const job of jobs) {
 
     const sent =
-      emitJob(
+      await emitJob(
         printerNamespace,
         job
       );
