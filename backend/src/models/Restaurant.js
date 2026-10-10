@@ -33,7 +33,7 @@ const restaurantSchema = new mongoose.Schema(
     subscription: {
       plan: {
         type: String,
-        enum: ["BASIC", "PRO"],
+        enum: ["BASIC", "PRO", "PREMIUM"],
         default: null,
       },
 

@@ -1,3 +1,4 @@
+
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -15,57 +16,23 @@ import RestaurantSettings from "./pages/RestaurantSettings";
 import StaffManagement from "./pages/StaffManagement";
 import Home from "./pages/Home";
 import Subscription from "./pages/Subscription";
-import PrinterManagement from "./components/PrinterManagement";
+import BillHistory from "./pages/BillHistory";
+import CashPayments from "./pages/CashPayments";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* PUBLIC ROUTES */}
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/subscription" element={<Subscription />} />
+        <Route path="/order/:tableId" element={<Menu />} />
+        <Route path="/checkout/:tableId" element={<Checkout />} />
+        <Route path="/order-status" element={<OrderStatus />} />
+        <Route path="/register" element={<Register />} />
 
-        {/* PUBLIC */}
-
-        <Route
-          path="/"
-          element={<Home />}
-        />
-
-        <Route
-          path="/login"
-          element={<Login />}
-        />
-
-        <Route
-          path="/subscription"
-          element={<Subscription />}
-        />
-
-        <Route
-          path="/order/:tableId"
-          element={<Menu />}
-        />
-
-        <Route
-          path="/checkout/:tableId"
-          element={<Checkout />}
-        />
-
-        <Route
-          path="/order-status"
-          element={<OrderStatus />}
-        />
-
-        <Route
-          path="/register"
-          element={<Register />}
-        />
-
-
-        {/* =========================
-            PROTECTED
-        ========================= */}
-
-        {/* ADMIN DASHBOARD */}
-
+        {/* ADMIN ONLY */}
         <Route
           path="/admin"
           element={
@@ -74,21 +41,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-
-        {/* KITCHEN */}
-
-        <Route
-          path="/kitchen"
-          element={
-            <ProtectedRoute allowedRoles={["admin", "staff"]}>
-              <KitchenDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-
-        {/* MENU / FOOD MANAGEMENT */}
 
         <Route
           path="/foods"
@@ -99,9 +51,6 @@ function App() {
           }
         />
 
-
-        {/* TABLES */}
-
         <Route
           path="/tables"
           element={
@@ -110,9 +59,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-
-        {/* STAFF */}
 
         <Route
           path="/staff"
@@ -123,8 +69,14 @@ function App() {
           }
         />
 
-
-        {/* SETTINGS */}
+        <Route
+          path="/bill-history"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <BillHistory />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/settings"
@@ -135,20 +87,34 @@ function App() {
           }
         />
 
-
-        {/* =========================
-            PRINTER MANAGEMENT
-        ========================= */}
-
+        {/* ADMIN AND STAFF */}
         <Route
-          path="/printers"
+          path="/kitchen"
           element={
-            <ProtectedRoute allowedRoles={["admin"]}>
-              <PrinterManagement />
+            <ProtectedRoute allowedRoles={["admin", "staff"]}>
+              <KitchenDashboard />
             </ProtectedRoute>
           }
         />
 
+        <Route
+          path="/cash-payments"
+          element={
+            <ProtectedRoute allowedRoles={["admin", "staff"]}>
+              <CashPayments />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* STAFF ONLY */}
+        <Route
+          path="/staff-dashboard"
+          element={
+            <ProtectedRoute allowedRoles={["staff"]}>
+              <KitchenDashboard />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

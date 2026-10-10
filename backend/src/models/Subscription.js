@@ -11,13 +11,13 @@ const subscriptionSchema = new mongoose.Schema(
 
     plan: {
       type: String,
-      enum: ["BASIC", "PRO"],
+      enum: ["BASIC", "PRO", "PREMIUM"],
       required: true,
     },
 
     billingCycle: {
       type: String,
-      enum: ["MONTHLY", "SIX_MONTHS", "TWELVE_MONTHS"],
+      enum: ["MONTHLY", "TWELVE_MONTHS"],
       required: true,
     },
 

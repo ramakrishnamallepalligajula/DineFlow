@@ -226,13 +226,6 @@ const billSchema = new mongoose.Schema(
       default: null,
     },
 
-    // =========================================
-    // PRINTING
-    // =========================================
-    printedAt: {
-      type: Date,
-      default: null,
-    },
   },
   {
     timestamps: true,

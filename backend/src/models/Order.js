@@ -35,10 +35,7 @@ const orderItemSchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
-    // =========================
     // RESTAURANT
-    // =========================
-
     restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Restaurant",
@@ -46,47 +43,19 @@ const orderSchema = new mongoose.Schema(
       index: true,
     },
 
-    // =========================
     // CUSTOMER-FACING ORDER ID
-    // =========================
-    //
-    // This can be the SAME for multiple
-    // orders belonging to one table session.
-    //
-    // Example:
-    //
-    // Order #1042
-    // Order #1042 - Additional #2
-    // Order #1042 - Additional #3
-    //
-    // MongoDB _id remains unique for
-    // every individual order document.
-    // =========================
-
     orderId: {
       type: Number,
       required: true,
       index: true,
     },
 
-    // =========================
     // TABLE SESSION
-    // =========================
-
     sessionId: {
       type: String,
       required: true,
       index: true,
     },
-
-    // =========================
-    // ORDER SEQUENCE
-    // =========================
-    //
-    // 1 = first order
-    // 2 = second order
-    // 3 = third order
-    // =========================
 
     orderSequence: {
       type: Number,
@@ -94,23 +63,13 @@ const orderSchema = new mongoose.Schema(
       min: 1,
     },
 
-    // =========================
-    // ORDER TYPE
-    // =========================
-
     type: {
       type: String,
-      enum: [
-        "initial",
-        "additional",
-      ],
+      enum: ["initial", "additional"],
       default: "initial",
     },
 
-    // =========================
     // TABLE
-    // =========================
-
     tableId: {
       type: String,
       required: true,
@@ -120,22 +79,16 @@ const orderSchema = new mongoose.Schema(
     tableNumber: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
     },
 
-    // =========================
     // ORDER ITEMS
-    // =========================
-
     items: {
       type: [orderItemSchema],
       required: true,
     },
 
-    // =========================
     // TOTALS
-    // =========================
-
     totalItems: {
       type: Number,
       required: true,
@@ -144,19 +97,74 @@ const orderSchema = new mongoose.Schema(
     totalPrice: {
       type: Number,
       required: true,
+      min: 0,
     },
 
-    // =========================
     // ORDER STATUS
-    // =========================
-
     status: {
       type: String,
-      enum: [
-        "Order Received",
-        "Accepted"
-      ],
+      enum: ["Order Received", "Accepted"],
       default: "Order Received",
+    },
+
+    // PAYMENT METHOD
+    paymentMethod: {
+      type: String,
+      enum: ["CASH", "ONLINE"],
+      default: undefined,
+    },
+
+    // PAYMENT STATUS
+    paymentStatus: {
+      type: String,
+      enum: ["PENDING", "PAID", "FAILED"],
+      default: "PENDING",
+      index: true,
+    },
+
+    // RAZORPAY REFERENCES
+    razorpayOrderId: {
+      type: String,
+      default: undefined,
+      trim: true,
+    },
+
+    razorpayPaymentId: {
+      type: String,
+      default: undefined,
+      trim: true,
+    },
+
+    // Set only after verified payment or confirmed cash collection.
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+
+    // CASH COLLECTION AUDIT
+    cashCollectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    cashCollectedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // UNIQUE REQUEST KEY FOR SAFE RETRIES
+    idempotencyKey: {
+      type: String,
+      default: undefined,
+      trim: true,
+    },
+
+    // SHA-256 HASH OF CUSTOMER RECOVERY TOKEN
+    recoveryTokenHash: {
+      type: String,
+      default: undefined,
+      select: false,
     },
   },
   {
@@ -164,28 +172,34 @@ const orderSchema = new mongoose.Schema(
   }
 );
 
-// =========================
-// INDEXES
-// =========================
-
-// Quickly find all orders
-// belonging to a table session.
+// SESSION ORDER LOOKUP
 orderSchema.index({
   restaurantId: 1,
   sessionId: 1,
   createdAt: 1,
 });
 
-// Quickly find orders for a table.
+// TABLE ORDER LOOKUP
 orderSchema.index({
   restaurantId: 1,
   tableId: 1,
   createdAt: 1,
 });
 
-const Order = mongoose.model(
-  "Order",
-  orderSchema
+// Prevent duplicate orders when the same request is retried.
+orderSchema.index(
+  {
+    restaurantId: 1,
+    idempotencyKey: 1,
+  },
+  {
+    unique: true,
+    partialFilterExpression: {
+      idempotencyKey: { $type: "string" },
+    },
+  }
 );
+
+const Order = mongoose.model("Order", orderSchema);
 
 export default Order;

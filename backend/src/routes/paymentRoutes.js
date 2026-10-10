@@ -62,6 +62,23 @@ router.post(
         });
       }
 
+      const restaurant = await Restaurant.findOne({
+            _id: restaurantId,
+            owner: req.user.userId,
+          });
+
+      if (!restaurant) {
+          return res.status(404).json({
+            message: "Restaurant not found",
+            });
+          }
+
+      if (subscription.orderId !== razorpay_order_id) {
+          return res.status(400).json({
+            message: "Order does not match the subscription",
+            });
+          }
+
       const amountInPaise = Math.round(
         subscription.amount * 100
       );

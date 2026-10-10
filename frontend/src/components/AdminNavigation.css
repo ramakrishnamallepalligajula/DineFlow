@@ -597,3 +597,21 @@
     background: #f7f2ea;
   }
 }
+
+
+.admin-navigation-icon,
+.admin-navigation-brand-icon,
+.admin-navigation-bottom-icon,
+.admin-navigation-logout > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.admin-navigation-icon svg,
+.admin-navigation-brand-icon svg,
+.admin-navigation-bottom-icon svg,
+.admin-navigation-logout > span svg {
+  display: block;
+}

@@ -10,15 +10,29 @@ const userSchema = new mongoose.Schema(
 
     email: {
       type: String,
-      required: true,
-      unique: true,
+      default: null,
       lowercase: true,
       trim: true,
     },
 
     passwordHash: {
       type: String,
-      required: true,
+      default: null,
+      select: false,
+    },
+
+    // Firebase Authentication UID
+    firebaseUid: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    // Phone number in E.164 format, e.g. +919876543210
+    phoneNumber: {
+      type: String,
+      default: null,
+      trim: true,
     },
 
     role: {
@@ -26,7 +40,8 @@ const userSchema = new mongoose.Schema(
       enum: ["admin", "staff"],
       default: "admin",
     },
-      restaurantId: {
+
+    restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Restaurant",
       default: null,
@@ -34,6 +49,31 @@ const userSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+  }
+);
+
+// Enforce uniqueness only when an email or Firebase UID is present.
+userSchema.index(
+  { email: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { email: { $type: "string" } },
+  }
+);
+
+userSchema.index(
+  { firebaseUid: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { firebaseUid: { $type: "string" } },
+  }
+);
+
+userSchema.index(
+  { phoneNumber: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { phoneNumber: { $type: "string" } },
   }
 );
 

@@ -2,14 +2,12 @@ const plans = {
   BASIC: {
     name: "Basic",
     monthly: {
-      amount: 899,
-    },
-    sixMonths: {
-      amount: 4499,
+      amount: 999,
     },
     yearly: {
-      amount: 7999,
+      amount: 8999,
     },
+    billRetentionDays: 30,
   },
 
   PRO: {
@@ -17,12 +15,21 @@ const plans = {
     monthly: {
       amount: 1499,
     },
-    sixMonths: {
-      amount: 7499,
-    },
     yearly: {
       amount: 14999,
     },
+    billRetentionDays: 90,
+  },
+
+  PREMIUM: {
+    name: "Premium",
+    monthly: {
+      amount: 2499,
+    },
+    yearly: {
+      amount: 24999,
+    },
+    billRetentionDays: null, // Unlimited retention
   },
 };
 

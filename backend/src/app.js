@@ -3,7 +3,6 @@ import express from "express";
 import cors from "cors";
 
 import orderRoutes from "./routes/orderRoutes.js";
-import tableRoutes from "./routes/tableRoutes.js";
 import foodRoutes from "./routes/foodRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 
@@ -14,11 +13,9 @@ import restaurantRoutes from "./routes/restaurantRoutes.js";
 import subscriptionRoutes from "./routes/subscriptionRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 
-import printerDeviceRoutes from "./routes/printerDeviceRoutes.js";
-import printerRoutes from "./routes/printerRoutes.js";
-import printerAgentRoutes from "./routes/printerAgentRoutes.js";
-
 import billPaymentRoutes from "./routes/billPaymentRoutes.js";
+import billRoutes from "./routes/billRoutes.js";
+import tableRoutes from "./routes/tableRoutes.js";
 
 const app = express();
 
@@ -35,65 +32,40 @@ const allowedOrigins = [
   "https://www.dinetoflow.in",
 ];
 
-// Add FRONTEND_URL from environment if it is different
 if (
   process.env.FRONTEND_URL &&
   !allowedOrigins.includes(process.env.FRONTEND_URL)
 ) {
-  allowedOrigins.push(
-    process.env.FRONTEND_URL
-  );
+  allowedOrigins.push(process.env.FRONTEND_URL);
 }
 
-console.log(
-  "🌐 Allowed CORS origins:",
-  allowedOrigins
-);
+console.log("🌐 Allowed CORS origins:", allowedOrigins);
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-
-      // Allow requests without an Origin header.
-      // Useful for server-to-server requests,
-      // Postman, printer agent, etc.
-      if (!origin) {
+    origin: (origin, callback) => {
+      // Allow requests without an Origin header, such as server-to-server requests
+      if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.log(
-        "❌ CORS blocked origin:",
-        origin
-      );
 
       return callback(
-        new Error(
-          `CORS blocked origin: ${origin}`
-        )
+        new Error(`CORS blocked for origin: ${origin}`)
       );
     },
-
     methods: [
       "GET",
       "POST",
       "PUT",
-      "DELETE",
       "PATCH",
+      "DELETE",
       "OPTIONS",
     ],
-
     allowedHeaders: [
       "Content-Type",
       "Authorization",
+      "X-Order-Recovery-Token",
     ],
-
-    credentials: true,
-
-    optionsSuccessStatus: 204,
   })
 );
 
@@ -239,39 +211,6 @@ export const setupRoutes = (io) => {
   );
 
   /*
-  =========================
-  PRINTER DEVICES
-  =========================
-  */
-
-  app.use(
-    "/api/printer-devices",
-    printerDeviceRoutes
-  );
-
-  /*
-  =========================
-  PRINTERS
-  =========================
-  */
-
-  app.use(
-    "/api/printers",
-    printerRoutes
-  );
-
-  /*
-  =========================
-  PRINTER AGENT
-  =========================
-  */
-
-  app.use(
-    "/api/printer-agent",
-    printerAgentRoutes
-  );
-
-  /*
    =======================
    ROZORPAY
    ======================= 
@@ -280,6 +219,17 @@ export const setupRoutes = (io) => {
   app.use(
     "/api/bill-payments",
     billPaymentRoutes
+  );
+
+  /*
+  =======================
+  BILL HISTORY
+  =======================
+  */
+
+  app.use(
+    "/api/bills", 
+    billRoutes
   );
 };
 

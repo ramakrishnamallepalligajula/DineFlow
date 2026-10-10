@@ -797,3 +797,33 @@
   display: block;
   border-radius: inherit;
 }
+
+
+
+
+
+/* Customer mobile number and optional WhatsApp bill consent */
+.checkout-customer-card {
+  margin: 22px 0;
+  padding: 22px;
+  border: 1px solid rgba(120, 130, 150, 0.2);
+  border-radius: 20px;
+  background: var(--checkout-card-bg, #fff);
+  box-shadow: 0 10px 30px rgba(20, 25, 40, 0.05);
+}
+.checkout-customer-heading { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
+.checkout-customer-icon { display: grid; place-items: center; flex: 0 0 46px; height: 46px; border-radius: 14px; background: #e9f8ef; font-size: 22px; }
+.checkout-customer-eyebrow { display: block; margin-bottom: 5px; color: #16834a; font-size: 11px; font-weight: 800; letter-spacing: .12em; }
+.checkout-customer-heading h2 { margin: 0 0 6px; font-size: clamp(18px, 2.5vw, 22px); }
+.checkout-customer-heading p, .checkout-phone-help { margin: 0; color: #6b7280; font-size: 13px; line-height: 1.5; }
+.checkout-phone-label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 700; }
+.checkout-phone-label span { color: #dc2626; }
+.checkout-phone-field { display: flex; align-items: center; overflow: hidden; border: 1px solid #d8dde5; border-radius: 12px; background: #fff; transition: border-color .2s, box-shadow .2s; }
+.checkout-phone-field:focus-within { border-color: #16834a; box-shadow: 0 0 0 3px rgba(22, 131, 74, .12); }
+.checkout-phone-prefix { padding: 0 14px; color: #374151; font-weight: 700; border-right: 1px solid #e5e7eb; }
+.checkout-phone-field input { width: 100%; min-width: 0; padding: 14px; border: 0; outline: 0; background: transparent; color: #111827; font: inherit; }
+.checkout-phone-help { margin-top: 7px; }
+.checkout-whatsapp-consent { display: flex; align-items: flex-start; gap: 11px; margin-top: 18px; padding: 14px; border: 1px solid #d8eadf; border-radius: 12px; background: #f5fbf7; color: #374151; font-size: 13px; line-height: 1.55; cursor: pointer; }
+.checkout-whatsapp-consent input { flex: 0 0 auto; width: 17px; height: 17px; margin: 2px 0 0; accent-color: #16834a; }
+.checkout-whatsapp-consent small { display: block; margin-top: 5px; color: #6b7280; font-size: 12px; }
+@media (max-width: 480px) { .checkout-customer-card { padding: 17px; border-radius: 16px; } .checkout-whatsapp-consent { padding: 12px; } }

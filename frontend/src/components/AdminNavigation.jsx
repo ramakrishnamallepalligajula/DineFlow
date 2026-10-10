@@ -1,368 +1,274 @@
+
 import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
 
-import { useAuth } from "../context/AuthContext";
+import {
+  LayoutDashboard,
+  ChefHat,
+  Armchair,
+  UtensilsCrossed,
+  Users,
+  ReceiptText,
+  Settings,
+  RefreshCw,
+  LogOut,
+  Wallet,
+} from "lucide-react";
 
+import { useAuth } from "../context/AuthContext";
 import "./AdminNavigation.css";
 
 function AdminNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const {
-    logout,
-    user,
-    restaurant,
-  } = useAuth();
+  const { logout, user, restaurant } = useAuth();
 
+  const currentPath = location.pathname;
+  const isAdmin = user?.role === "admin";
   const isStaff = user?.role === "staff";
 
-  const currentPath =
-    location.pathname;
-
-  const isAdmin = user?.role === "admin";
-
-  const isActive = (path) => {
-    return currentPath === path;
-  };
+  const isActive = (path) => currentPath === path;
 
   const handleLogout = () => {
     logout();
-    navigate("/login");
+    navigate("/login", { replace: true });
   };
+
+  const iconProps = {
+    size: 19,
+    strokeWidth: 1.8,
+    "aria-hidden": true,
+  };
+
+  const renderIcon = (Icon) => <Icon {...iconProps} />;
+
+  const homePath = isAdmin ? "/admin" : "/kitchen";
 
   return (
     <aside className="admin-navigation">
-
-      {/* =========================
-          RESTAURANT BRAND
-      ========================= */}
-
+      {/* RESTAURANT BRAND */}
       <div
         className="admin-navigation-brand"
-        onClick={() =>
-          navigate("/admin")
-        }
+        onClick={() => navigate(homePath)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            navigate(homePath);
+          }
+        }}
       >
-
         <div className="admin-navigation-brand-icon">
-          🍽️
+          {renderIcon(UtensilsCrossed)}
         </div>
 
         <div className="admin-navigation-brand-text">
-
-          <h1>
-            {restaurant?.name ||
-              "Your Restaurant"}
-          </h1>
-
-          <span>
-            Restaurant OS
-          </span>
-
+          <h1>{restaurant?.name || "Your Restaurant"}</h1>
+          <span>Restaurant OS</span>
         </div>
-
       </div>
 
-      {/* =========================
-          MAIN NAVIGATION
-      ========================= */}
-
       <div className="admin-navigation-content">
-
         {/* MAIN */}
-
         {isAdmin && (
           <div className="admin-navigation-section">
-
             <div className="admin-navigation-section-title">
               MAIN
             </div>
 
             <nav className="admin-navigation-menu">
-
               <button
                 data-tour="dashboard"
                 className={`admin-navigation-item ${
-                  isActive("/admin")
-                    ? "active"
-                    : ""
+                  isActive("/admin") ? "active" : ""
                 }`}
-                onClick={() =>
-                  navigate("/admin")
-                }
+                onClick={() => navigate("/admin")}
               >
                 <span className="admin-navigation-icon">
-                  📊
+                  {renderIcon(LayoutDashboard)}
                 </span>
-
                 <span className="admin-navigation-label">
                   Dashboard
                 </span>
               </button>
-
             </nav>
-
           </div>
         )}
 
         {/* OPERATIONS */}
-
         <div className="admin-navigation-section">
-
           <div className="admin-navigation-section-title">
             OPERATIONS
           </div>
 
           <nav className="admin-navigation-menu">
-
-            {/* KITCHEN */}
-
             <button
               data-tour="kitchen"
               className={`admin-navigation-item ${
-                isActive("/kitchen")
-                  ? "active"
-                  : ""
+                isActive("/kitchen") ? "active" : ""
               }`}
-              onClick={() =>
-                navigate("/kitchen")
-              }
+              onClick={() => navigate("/kitchen")}
             >
               <span className="admin-navigation-icon">
-                👨‍🍳
+                {renderIcon(ChefHat)}
               </span>
-
               <span className="admin-navigation-label">
                 Kitchen
               </span>
             </button>
 
-            {/* PRINTERS */}
-
-            {isAdmin && (
+            {/* STAFF CASH PAYMENTS */}
+            {isStaff && (
               <button
-                data-tour="printers"
                 className={`admin-navigation-item ${
-                  isActive("/printers")
-                    ? "active"
-                    : ""
+                  isActive("/cash-payments") ? "active" : ""
                 }`}
-                onClick={() =>
-                  navigate("/printers")
-                }
+                onClick={() => navigate("/cash-payments")}
               >
                 <span className="admin-navigation-icon">
-                  🖨️
+                  {renderIcon(Wallet)}
                 </span>
-
                 <span className="admin-navigation-label">
-                  Printers
+                  Cash Payments
                 </span>
               </button>
             )}
 
-            {/* TABLES */}
-
             {isAdmin && (
-              <button
-                data-tour="tables"
-                className={`admin-navigation-item ${
-                  isActive("/tables")
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  navigate("/tables")
-                }
-              >
-                <span className="admin-navigation-icon">
-                  🪑
-                </span>
+              <>
+                <button
+                  data-tour="tables"
+                  className={`admin-navigation-item ${
+                    isActive("/tables") ? "active" : ""
+                  }`}
+                  onClick={() => navigate("/tables")}
+                >
+                  <span className="admin-navigation-icon">
+                    {renderIcon(Armchair)}
+                  </span>
+                  <span className="admin-navigation-label">
+                    Tables
+                  </span>
+                </button>
 
-                <span className="admin-navigation-label">
-                  Tables
-                </span>
-              </button>
+                <button
+                  data-tour="menu"
+                  className={`admin-navigation-item ${
+                    isActive("/foods") ? "active" : ""
+                  }`}
+                  onClick={() => navigate("/foods")}
+                >
+                  <span className="admin-navigation-icon">
+                    {renderIcon(UtensilsCrossed)}
+                  </span>
+                  <span className="admin-navigation-label">
+                    Menu
+                  </span>
+                </button>
+              </>
             )}
-
-            {/* MENU */}
-
-            {isAdmin && (
-              <button
-                data-tour="menu"
-                className={`admin-navigation-item ${
-                  isActive("/foods")
-                    ? "active"
-                    : ""
-                }`}
-                onClick={() =>
-                  navigate("/foods")
-                }
-              >
-                <span className="admin-navigation-icon">
-                  🍔
-                </span>
-
-                <span className="admin-navigation-label">
-                  Menu
-                </span>
-              </button>
-            )}
-
           </nav>
-
         </div>
 
-        {/* BUSINESS */}
-
+        {/* BUSINESS — ADMIN ONLY */}
         {isAdmin && (
           <div className="admin-navigation-section">
-
             <div className="admin-navigation-section-title">
               BUSINESS
             </div>
 
             <nav className="admin-navigation-menu">
-
-              {/* STAFF */}
-
               <button
                 data-tour="staff"
                 className={`admin-navigation-item ${
-                  isActive("/staff")
-                    ? "active"
-                    : ""
+                  isActive("/staff") ? "active" : ""
                 }`}
-                onClick={() =>
-                  navigate("/staff")
-                }
+                onClick={() => navigate("/staff")}
               >
                 <span className="admin-navigation-icon">
-                  👥
+                  {renderIcon(Users)}
                 </span>
-
                 <span className="admin-navigation-label">
                   Staff
                 </span>
               </button>
 
-              {/* REPORTS */}
-
-              {!isStaff && (
-                <button
-                  data-tour="reports"
-                  className="admin-navigation-item"
-                  onClick={() =>
-                    navigate("/admin")
-                  }
-                >
-                  <span className="admin-navigation-icon">
-                    📈
-                  </span>
-
-                  <span className="admin-navigation-label">
-                    Reports
-                  </span>
-                </button>
-              )}
-
-              {/* SETTINGS */}
+              <button
+                data-tour="bill-history"
+                className={`admin-navigation-item ${
+                  isActive("/bill-history") ? "active" : ""
+                }`}
+                onClick={() => navigate("/bill-history")}
+              >
+                <span className="admin-navigation-icon">
+                  {renderIcon(ReceiptText)}
+                </span>
+                <span className="admin-navigation-label">
+                  Bill History
+                </span>
+              </button>
 
               <button
                 data-tour="settings"
                 className={`admin-navigation-item ${
-                  isActive("/settings")
-                    ? "active"
-                    : ""
+                  isActive("/settings") ? "active" : ""
                 }`}
-                onClick={() =>
-                  navigate("/settings")
-                }
+                onClick={() => navigate("/settings")}
               >
                 <span className="admin-navigation-icon">
-                  ⚙️
+                  {renderIcon(Settings)}
                 </span>
-
                 <span className="admin-navigation-label">
                   Settings
                 </span>
               </button>
-
             </nav>
-
           </div>
         )}
-
       </div>
 
-      {/* =========================
-          BOTTOM AREA
-      ========================= */}
-
+      {/* BOTTOM AREA */}
       <div className="admin-navigation-bottom">
-
-        {/* REFRESH */}
-
         <button
           className="admin-navigation-bottom-item"
-          onClick={() =>
-            window.location.reload()
-          }
+          onClick={() => window.location.reload()}
         >
           <span className="admin-navigation-bottom-icon">
-            ↻
+            {renderIcon(RefreshCw)}
           </span>
-
-          <span>
-            Refresh
-          </span>
+          <span>Refresh</span>
         </button>
 
-        {/* USER */}
-
         <div className="admin-navigation-user">
-
           <div className="admin-navigation-user-avatar">
             {user?.name
-              ? user.name
-                  .charAt(0)
-                  .toUpperCase()
-              : "A"}
+              ? user.name.charAt(0).toUpperCase()
+              : isStaff
+                ? "S"
+                : "A"}
           </div>
 
           <div className="admin-navigation-user-info">
-
             <strong>
               {user?.name ||
-                "Restaurant Admin"}
+                (isStaff ? "Restaurant Staff" : "Restaurant Admin")}
             </strong>
-
-            <span>
-              Administrator
-            </span>
-
+            <span>{isAdmin ? "Administrator" : "Staff Member"}</span>
           </div>
-
         </div>
-
-        {/* LOGOUT */}
 
         <button
           className="admin-navigation-logout"
           onClick={handleLogout}
         >
-          <span>
-            ↪
-          </span>
-
+          <span>{renderIcon(LogOut)}</span>
           Logout
         </button>
-
       </div>
-
     </aside>
   );
 }

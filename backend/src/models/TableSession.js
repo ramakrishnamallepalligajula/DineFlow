@@ -56,6 +56,21 @@ const tableSessionSchema = new mongoose.Schema(
       default: "open",
       index: true,
     },
+    closeTableRequest: {
+      status: {
+        type: String,
+        enum: ["none", "pending", "rejected", "approved"],
+        default: "none",
+      },
+    requestedAt: {
+        type: Date,
+        default: null,
+      },
+    reviewedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   {
     timestamps: true,
@@ -75,7 +90,6 @@ tableSessionSchema.index(
     },
   }
 );
-
 const TableSession = mongoose.model(
   "TableSession",
   tableSessionSchema

@@ -1,155 +1,241 @@
+
 import { useState } from "react";
+import { signInWithPopup } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
+
+import { auth, googleProvider } from "../firebase";
 import { useAuth } from "../context/AuthContext";
+
 import "./Login.css";
 
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
   const navigate = useNavigate();
   const { login, refreshUser } = useAuth();
 
-  const handleLogin = async (event) => {
+  const [loginMode, setLoginMode] = useState("admin");
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffPassword, setStaffPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  // ==========================================
+  // ADMIN GOOGLE LOGIN
+  // ==========================================
+
+  const handleGoogleLogin = async () => {
+    setError("");
+    setMessage("");
+    setLoading(true);
+
+    try {
+      const result = await signInWithPopup(
+        auth,
+        googleProvider
+      );
+
+      const idToken = await result.user.getIdToken();
+
+      const response = await fetch(
+        `${API_URL}/api/auth/firebase`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ idToken }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (
+        response.status === 428 &&
+        data.requiresRestaurantSetup
+      ) {
+        navigate("/register", {
+          replace: true,
+          state: {
+            requiresFirebaseSetup: true,
+          },
+        });
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Google authentication failed."
+        );
+      }
+
+      if (
+        !data.token ||
+        !data.user ||
+        !data.restaurant
+      ) {
+        throw new Error(
+          "The server returned incomplete account information."
+        );
+      }
+
+      // Google login is reserved for restaurant admins.
+      if (data.user.role !== "admin") {
+        throw new Error(
+          "This account cannot use admin Google login. Please use Staff Login."
+        );
+      }
+
+      login(data.token, data.user, data.restaurant);
+
+      let restaurant = data.restaurant;
+
+      try {
+        const refreshed = await refreshUser();
+
+        if (refreshed?.restaurant) {
+          restaurant = refreshed.restaurant;
+        }
+      } catch (refreshError) {
+        console.error(
+          "Session refresh failed:",
+          refreshError
+        );
+      }
+
+      const subscriptionStatus =
+        restaurant?.subscription?.status;
+
+      navigate(
+        subscriptionStatus === "TRIALING" ||
+          subscriptionStatus === "ACTIVE"
+          ? "/admin"
+          : "/subscription",
+        { replace: true }
+      );
+    } catch (err) {
+      console.error("Google sign-in failed:", err);
+
+      setError(
+        err.message || "Google sign-in failed."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==========================================
+  // STAFF EMAIL AND PASSWORD LOGIN
+  // ==========================================
+
+  const handleStaffLogin = async (event) => {
     event.preventDefault();
 
     setError("");
+    setMessage("");
     setLoading(true);
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || "http://localhost:3000"}/api/auth/login`,
+        `${API_URL}/api/auth/login`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            email,
-            password,
+            email: staffEmail.trim().toLowerCase(),
+            password: staffPassword,
           }),
         }
       );
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+
+if (!contentType.includes("application/json")) {
+  throw new Error(
+    `Staff login endpoint returned HTTP ${response.status}. Check your backend route registration.`
+  );
+}
+
+const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Login failed");
+        throw new Error(
+          data.message || "Staff login failed."
+        );
       }
 
-      // Save authentication information first
-      login(
-        data.token,
-        data.user,
-        data.restaurant
-      );
+      if (
+        !data.token ||
+        !data.user ||
+        !data.restaurant ||
+        data.user.role !== "staff"
+      ) {
+        throw new Error(
+          "Invalid staff account response."
+        );
+      }
 
-      /*
-       * IMPORTANT:
-       * Get the latest restaurant/subscription information
-       * from the backend after login.
-       */
-      let latestRestaurant = data.restaurant;
+      login(data.token, data.user, data.restaurant);
 
       try {
-        const refreshedData = await refreshUser();
+        const refreshed = await refreshUser();
 
-        if (refreshedData?.restaurant) {
-          latestRestaurant = refreshedData.restaurant;
+        if (
+          refreshed?.user &&
+          refreshed.user.role !== "staff"
+        ) {
+          throw new Error(
+            "This account is not authorized for staff access."
+          );
         }
       } catch (refreshError) {
         console.error(
-          "Failed to refresh user after login:",
+          "Staff session refresh failed:",
           refreshError
         );
       }
 
-      // ===============================
-      // STAFF LOGIN
-      // ===============================
-
-      if (data.user.role === "staff") {
-        navigate("/kitchen", {
-          replace: true,
-        });
-        return;
-      }
-
-      // ===============================
-      // ADMIN LOGIN
-      // ===============================
-
-      if (data.user.role === "admin") {
-        const subscription =
-          latestRestaurant?.subscription;
-
-        const subscriptionStatus =
-          subscription?.status;
-
-        const hasActiveAccess =
-          subscriptionStatus === "TRIALING" ||
-          subscriptionStatus === "ACTIVE";
-
-        console.log(
-          "🔐 Login subscription status:",
-          subscriptionStatus
-        );
-
-        if (hasActiveAccess) {
-          // Active plan / free trial
-          navigate("/admin", {
-            replace: true,
-          });
-        } else {
-          // No subscription / expired / cancelled
-          navigate("/subscription", {
-            replace: true,
-          });
-        }
-
-        return;
-      }
-
-      // Unknown role
-      navigate("/login", {
+      navigate("/kitchen", {
         replace: true,
       });
-    } catch (error) {
-      console.error("Login failed:", error);
-      setError(error.message);
+    } catch (err) {
+      console.error("Staff login failed:", err);
+
+      setError(
+        err.message || "Unable to sign in. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  // ==========================================
+  // LOGIN PAGE
+  // ==========================================
+
+  const changeLoginMode = (mode) => {
+    setLoginMode(mode);
+    setError("");
+    setMessage("");
+  };
+
   return (
     <div className="login-page">
-
-      {/* ================= LEFT SIDE ================= */}
-
+      {/* LEFT PANEL */}
       <div className="login-left">
-
-        <div className="login-overlay"></div>
+        <div className="login-overlay" />
 
         <div className="login-left-content">
-
-          {/* Logo */}
-
           <div
             className="brand"
             onClick={() => navigate("/")}
-            role="button"
-            tabIndex={0}
           >
-            <div className="brand-icon">
-              👨‍🍳
-            </div>
+            <div className="brand-icon">🍽️</div>
 
             <div>
               <h1>DineFlow</h1>
@@ -157,293 +243,195 @@ function Login() {
             </div>
           </div>
 
-          {/* Main Heading */}
-
           <div className="hero-content">
-
             <h2>
-              Manage Your
-              <br />
-
-              <span>Restaurant</span> with Ease
+              Manage Your <span>Restaurant</span> with Ease
             </h2>
 
             <p className="hero-description">
-              Simple, fast and powerful tools to handle
-              orders, menu, tables and more — all in one place.
+              Manage orders, menus, tables and more —
+              all in one place.
             </p>
-
           </div>
-
-          {/* Features */}
 
           <div className="login-features">
-
             <div className="feature-item">
-              <div className="feature-icon">
-                📊
-              </div>
-
+              <div className="feature-icon">📊</div>
               <div>
                 <h3>Real-time Orders</h3>
-                <p>Track orders as they come in</p>
+                <p>Track orders as they arrive</p>
               </div>
             </div>
 
             <div className="feature-item">
-              <div className="feature-icon">
-                🔔
-              </div>
-
+              <div className="feature-icon">🔔</div>
               <div>
                 <h3>Menu Management</h3>
-                <p>Add, edit and organize food items</p>
+                <p>Manage your restaurant menu</p>
               </div>
             </div>
 
             <div className="feature-item">
-              <div className="feature-icon">
-                ▣
-              </div>
-
+              <div className="feature-icon">▣</div>
               <div>
                 <h3>Table QR Codes</h3>
-                <p>Generate QR codes for each table</p>
+                <p>Enable digital ordering</p>
               </div>
             </div>
-
-            <div className="feature-item">
-              <div className="feature-icon">
-                👥
-              </div>
-
-              <div>
-                <h3>Staff Management</h3>
-                <p>Manage kitchen and service staff</p>
-              </div>
-            </div>
-
           </div>
-
-          {/* Bottom Message */}
-
-          <div className="login-bottom-card">
-
-            <div className="bottom-star">
-              ✨
-            </div>
-
-            <div>
-              <strong>
-                Built for modern restaurants
-              </strong>
-
-              <p>
-                Faster service. Happier customers. Higher profits.
-              </p>
-            </div>
-
-          </div>
-
         </div>
       </div>
 
-      {/* ================= RIGHT SIDE ================= */}
-
+      {/* RIGHT PANEL */}
       <div className="login-right">
-
         <div className="login-card">
-
-          {/* Logo */}
-
-          <div className="login-logo">
-            👨‍🍳
-          </div>
+          <div className="login-logo">🍽️</div>
 
           <div className="login-heading">
-
-            <h2>Welcome Back</h2>
-
+            <h2>Welcome to DineFlow</h2>
             <p>
-              Login to your restaurant dashboard
+              Sign in to your restaurant workspace
             </p>
-
           </div>
 
-          {/* Login Form */}
-
-          <form
-            className="login-form"
-            onSubmit={handleLogin}
+          {/* LOGIN MODE SELECTOR */}
+          <div
+            className="login-mode-switch"
+            role="group"
+            aria-label="Choose login type"
           >
-
-            {/* Email */}
-
-            <div className="login-field">
-
-              <label htmlFor="email">
-                Email Address
-              </label>
-
-              <div className="input-wrapper">
-
-                <span className="input-icon">
-                  ✉
-                </span>
-
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(event) =>
-                    setEmail(event.target.value)
-                  }
-                  placeholder="admin@restaurant.com"
-                  required
-                />
-
-              </div>
-
-            </div>
-
-            {/* Password */}
-
-            <div className="login-field">
-
-              <label htmlFor="password">
-                Password
-              </label>
-
-              <div className="input-wrapper">
-
-                <span className="input-icon">
-                  🔒
-                </span>
-
-                <input
-                  id="password"
-                  type={
-                    showPassword
-                      ? "text"
-                      : "password"
-                  }
-                  value={password}
-                  onChange={(event) =>
-                    setPassword(event.target.value)
-                  }
-                  placeholder="Enter your password"
-                  required
-                />
-
-                <button
-                  type="button"
-                  className="password-toggle"
-                  onClick={() =>
-                    setShowPassword(!showPassword)
-                  }
-                  aria-label={
-                    showPassword
-                      ? "Hide password"
-                      : "Show password"
-                  }
-                >
-                  {showPassword ? "🙈" : "👁️"}
-                </button>
-
-              </div>
-
-            </div>
-
-            {/* Remember / Forgot */}
-
-            <div className="login-options">
-
-              <label className="remember-me">
-
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(event) =>
-                    setRememberMe(event.target.checked)
-                  }
-                />
-
-                <span>
-                  Remember me
-                </span>
-
-              </label>
-
-              <button
-                type="button"
-                className="forgot-password"
-                onClick={() =>
-                  alert(
-                    "Please contact your administrator to reset your password."
-                  )
-                }
-              >
-                Forgot password?
-              </button>
-
-            </div>
-
-            {/* Error */}
-
-            {error && (
-              <p className="login-error">
-                {error}
-              </p>
-            )}
-
-            {/* Login */}
-
             <button
-              type="submit"
-              className="login-submit"
+              type="button"
+              className={
+                loginMode === "admin" ? "active" : ""
+              }
+              aria-pressed={loginMode === "admin"}
+              onClick={() => changeLoginMode("admin")}
               disabled={loading}
             >
-              {loading
-                ? "Logging in..."
-                : "Login"}
-
-              {!loading && (
-                <span className="login-arrow">
-                  →
-                </span>
-              )}
+              Admin Login
             </button>
-
-          </form>
-
-          {/* Divider */}
-
-          <div className="login-divider">
-            <span></span>
-            <p>OR</p>
-            <span></span>
-          </div>
-
-          {/* Contact */}
-
-          <div className="register-link">
-            <p>
-              Don't have a restaurant account?
-            </p>
 
             <button
-              className="Create-account"
               type="button"
-              onClick={() => navigate("/register")}
+              className={
+                loginMode === "staff" ? "active" : ""
+              }
+              aria-pressed={loginMode === "staff"}
+              onClick={() => changeLoginMode("staff")}
+              disabled={loading}
             >
-              Create Restaurant Account
+              Staff Login
             </button>
           </div>
 
+          {error && (
+            <p className="login-error" role="alert">
+              {error}
+            </p>
+          )}
+
+          {message && (
+            <p role="status">{message}</p>
+          )}
+
+          {/* ADMIN LOGIN */}
+          {loginMode === "admin" && (
+            <>
+              <button
+                type="button"
+                className="login-submit"
+                onClick={handleGoogleLogin}
+                disabled={loading}
+              >
+                {loading
+                  ? "Please wait..."
+                  : "Continue with Google"}
+              </button>
+
+              <div className="register-link">
+                <p>New to DineFlow?</p>
+
+                <button
+                  className="Create-account"
+                  type="button"
+                  onClick={() => navigate("/register")}
+                  disabled={loading}
+                >
+                  Create Restaurant Account
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* STAFF LOGIN */}
+          {loginMode === "staff" && (
+            <>
+              <p className="staff-login-description">
+                Sign in using the credentials provided
+                by your restaurant admin.
+              </p>
+
+              <form
+                className="login-form"
+                onSubmit={handleStaffLogin}
+              >
+                <div className="login-field">
+                  <label htmlFor="staff-email">
+                    Email address
+                  </label>
+
+                  <input
+                    id="staff-email"
+                    type="email"
+                    value={staffEmail}
+                    onChange={(event) =>
+                      setStaffEmail(event.target.value)
+                    }
+                    placeholder="staff@restaurant.com"
+                    autoComplete="username"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="login-field">
+                  <label htmlFor="staff-password">
+                    Password
+                  </label>
+
+                  <input
+                    id="staff-password"
+                    type="password"
+                    value={staffPassword}
+                    onChange={(event) =>
+                      setStaffPassword(event.target.value)
+                    }
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="login-submit"
+                  disabled={loading}
+                >
+                  {loading
+                    ? "Signing in..."
+                    : "Staff Sign In"}
+                </button>
+              </form>
+
+              <p className="staff-login-help">
+                Need access? Contact your restaurant admin.
+              </p>
+            </>
+          )}
         </div>
-
       </div>
-
     </div>
   );
 }

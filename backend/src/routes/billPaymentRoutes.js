@@ -7,7 +7,6 @@ import Bill from "../models/Bill.js";
 import BillPayment from "../models/BillPayments.js";
 
 import Restaurant from "../models/Restaurant.js";
-import { createBillingPrintJob } from "../services/printJobService.js";
 
 const router = express.Router();
 
@@ -507,30 +506,6 @@ router.post("/verify", async (req, res) => {
 
     const io = req.app.get("io");
 
-    // --------------------------------------------------------
-    // CREATE BILLING PRINT JOB
-    // --------------------------------------------------------
-
-    let printJob = null;
-
-try {
-  printJob = await createBillingPrintJob({
-    bill,
-    restaurant,
-    io,
-  });
-
-  console.log(
-    `🧾 Online receipt print job: ${
-      printJob?._id || "No billing printer configured"
-    }`
-  );
-} catch (printError) {
-  console.error(
-    `⚠️ Online payment succeeded but receipt print job failed for bill ${bill.billNumber}:`,
-    printError
-  );
-}
     // --------------------------------------------------------
     // SUCCESS
     // --------------------------------------------------------

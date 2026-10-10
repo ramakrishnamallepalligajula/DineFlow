@@ -7,7 +7,6 @@ import app, {
 } from "./app.js";
 
 import connectDB from "./config/db.js";
-import { setupPrinterGateway } from "./websocket/printerGateway.js";
 
 dotenv.config();
 
@@ -42,13 +41,9 @@ const io = new Server(server, {
 });
 
 app.set("io", io);
-
-// =========================
-// CONNECT ROUTES TO SOCKET.IO
-// =========================
-
 setupRoutes(io);
-setupPrinterGateway(io);
+
+
 // =========================
 // START SERVER
 // =========================
