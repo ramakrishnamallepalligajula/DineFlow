@@ -1,19 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Subscription.css";
 import { useAuth } from "../context/AuthContext";
 
 const API_URL =
-  import.meta.env.VITE_API_URL ||
-  "http://localhost:3000";
+  import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const plans = [
   {
     id: "basic",
     apiPlan: "BASIC",
     name: "Basic",
-    description:
-      "Everything you need to start digital restaurant ordering.",
+    description: "Everything you need to start digital restaurant ordering.",
     features: [
       "QR Code Ordering",
       "Digital Menu",
@@ -28,8 +26,7 @@ const plans = [
     apiPlan: "PRO",
     name: "Pro",
     popular: true,
-    description:
-      "Powerful tools for growing restaurants.",
+    description: "Powerful tools for growing restaurants.",
     features: [
       "Everything in Basic",
       "Advanced Dashboard",
@@ -48,29 +45,17 @@ const billingOptions = {
     label: "Monthly",
     suffix: "/month",
     prices: {
-      basic: 899,
+      basic: 999,
       pro: 1499,
     },
     saving: null,
   },
-
-  sixMonths: {
-    apiValue: "SIX_MONTHS",
-    label: "6 Months",
-    suffix: "/6 months",
-    prices: {
-      basic: 4499,
-      pro: 7499,
-    },
-    saving: "Save ~17%",
-  },
-
   twelveMonths: {
     apiValue: "TWELVE_MONTHS",
     label: "12 Months",
     suffix: "/year",
     prices: {
-      basic: 7999,
+      basic: 9999,
       pro: 14999,
     },
     saving: "Save ~26%",
@@ -79,42 +64,87 @@ const billingOptions = {
 
 function SubscriptionPlans() {
   const navigate = useNavigate();
-  const {
-  updateSession,
-} = useAuth();
+  const { updateSession } = useAuth();
 
-  const [billingPeriod, setBillingPeriod] =
-    useState("monthly");
-
-  const [loadingPlan, setLoadingPlan] =
-    useState(null);
-
+  const [billingPeriod, setBillingPeriod] = useState("monthly");
+  const [loadingPlan, setLoadingPlan] = useState(null);
   const [error, setError] = useState("");
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [startedPlan, setStartedPlan] = useState(null);
 
-  const [showWelcome, setShowWelcome] =
-    useState(false);
+  const [subscription, setSubscription] = useState(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
+  const [accountData, setAccountData] = useState(null);
 
-  const [startedPlan, setStartedPlan] =
-    useState(null);
+  const selectedBilling = billingOptions[billingPeriod];
 
-  const selectedBilling =
-    billingOptions[billingPeriod];
+  useEffect(() => {
+    let cancelled = false;
 
-  // ==========================================
-  // START FREE TRIAL
-  // ==========================================
+    const fetchSubscription = async () => {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        setSubscriptionLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/auth/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Unable to load your subscription.");
+        }
+
+        const data = await response.json();
+
+        if (cancelled) return;
+
+        setAccountData(data);
+        setSubscription(data.restaurant?.subscription ?? null);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Subscription loading error:", err);
+          setError(err.message || "Unable to load subscription.");
+        }
+      } finally {
+        if (!cancelled) {
+          setSubscriptionLoading(false);
+        }
+      }
+    };
+
+    fetchSubscription();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const trialAlreadyUsed = Boolean(
+    subscription?.trialUsed ||
+      subscription?.trialStartedAt ||
+      subscription?.trialEndsAt ||
+      ["TRIALING", "EXPIRED", "CANCELLED"].includes(
+        subscription?.status
+      )
+  );
+
+  const paidSubscriptionActive =
+    subscription?.status === "ACTIVE";
 
   const handleStartTrial = async (plan) => {
-    if (loadingPlan) {
-      return;
-    }
+    if (loadingPlan) return;
 
     setError("");
     setLoadingPlan(plan.id);
 
     try {
-      const token =
-        localStorage.getItem("token");
+      const token = localStorage.getItem("token");
 
       if (!token) {
         navigate("/login");
@@ -125,347 +155,311 @@ function SubscriptionPlans() {
         `${API_URL}/api/restaurants/start-trial`,
         {
           method: "POST",
-
           headers: {
-            "Content-Type":
-              "application/json",
-
-            Authorization:
-              `Bearer ${token}`,
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
           },
-
           body: JSON.stringify({
             plan: plan.apiPlan,
-
-            billingPeriod:
-              selectedBilling.apiValue,
+            billingPeriod: selectedBilling.apiValue,
           }),
         }
       );
 
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            "Failed to start free trial"
+          data.message || "Failed to start free trial."
         );
       }
 
-      console.log(
-        "🎉 Trial started successfully:",
-        data
-      );
-
-      // ==========================================
-      // SAVE SELECTED PLAN
-      // ==========================================
-
       setStartedPlan({
         name: plan.name,
-        billingPeriod:
-          selectedBilling.label,
-        trialEndsAt:
-          data.subscription
-            ?.trialEndsAt,
+        billingPeriod: selectedBilling.label,
+        trialEndsAt: data.subscription?.trialEndsAt,
       });
 
-      // ==========================================
-      // SHOW WELCOME POPUP
-      // ==========================================
+      // Immediately switch the button to Buy Plan.
+      setSubscription((previous) => ({
+        ...previous,
+        ...data.subscription,
+        status: data.subscription?.status || "TRIALING",
+        trialUsed: true,
+      }));
 
       setShowWelcome(true);
-
-    } catch (error) {
-      console.error(
-        "❌ Trial start error:",
-        error
-      );
-
-      setError(
-        error.message ||
-          "Something went wrong while starting your trial."
-      );
+    } catch (err) {
+      console.error("Trial start error:", err);
+      setError(err.message || "Unable to start free trial.");
     } finally {
       setLoadingPlan(null);
     }
   };
 
-  // ==========================================
-  // CONTINUE TO DASHBOARD
-  // ==========================================
+  const handleBuyPlan = async (plan) => {
+  if (loadingPlan) return;
 
-/*  
+  const token = localStorage.getItem("token");
 
-const handleContinue = async () => {
-  try {
-    const token =
-      localStorage.getItem("token");
-
-    if (!token) {
-      navigate("/login", {
-        replace: true,
-      });
-
-      return;
-    }
-
-    // Refresh the latest restaurant/subscription
-    // information before entering the dashboard.
-    const response = await fetch(
-      `${API_URL}/api/auth/me`,
-      {
-        method: "GET",
-
-        headers: {
-          Authorization:
-            `Bearer ${token}`,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        "Failed to refresh account information"
-      );
-    }
-
-    const data =
-      await response.json();
-
-    // Update localStorage so ProtectedRoute
-    // has the latest subscription.
-    if (data.user) {
-      localStorage.setItem(
-        "user",
-        JSON.stringify(data.user)
-      );
-    }
-
-    if (data.restaurant) {
-      localStorage.setItem(
-        "restaurant",
-        JSON.stringify(
-          data.restaurant
-        )
-      );
-    }
-
-    setShowWelcome(false);
-
-    // Now enter the dashboard.
-    navigate("/admin", {
-      replace: true,
-    });
-  } catch (error) {
-    console.error(
-      "❌ Failed to enter DineFlow:",
-      error
-    );
-
-    // Even if the refresh fails, don't leave
-    // the user trapped on the popup.
-    setShowWelcome(false);
-
-    navigate("/admin", {
-      replace: true,
-    });
+  if (!token) {
+    navigate("/login");
+    return;
   }
-};
-*/
 
+  setError("");
+  setLoadingPlan(plan.id);
 
-const handleContinue = async () => {
   try {
-    const token =
-      localStorage.getItem("token");
+    // Load Razorpay Checkout.
+    const scriptLoaded = await new Promise((resolve) => {
+      if (window.Razorpay) {
+        resolve(true);
+        return;
+      }
 
-    // ==========================================
-    // AUTH CHECK
-    // ==========================================
+      const script = document.createElement("script");
+      script.src =
+        "https://checkout.razorpay.com/v1/checkout.js";
 
-    if (!token) {
-      setShowWelcome(false);
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
 
-      navigate("/login", {
-        replace: true,
-      });
+      document.body.appendChild(script);
+    });
 
-      return;
+    if (!scriptLoaded) {
+      throw new Error("Unable to load Razorpay Checkout.");
     }
 
-    // ==========================================
-    // GET FRESH ACCOUNT DATA
-    // ==========================================
-
-    const response = await fetch(
-      `${API_URL}/api/auth/me`,
+    // Step 1: Create or update the pending subscription.
+    const selectResponse = await fetch(
+      `${API_URL}/api/subscriptions/select-plan`,
       {
-        method: "GET",
-
+        method: "POST",
         headers: {
-          Authorization:
-            `Bearer ${token}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          plan: plan.apiPlan,
+          billingCycle: selectedBilling.apiValue,
+        }),
+      }
+    );
+
+    const selectedData = await selectResponse.json();
+
+    if (!selectResponse.ok) {
+      throw new Error(
+        selectedData.message || "Unable to select subscription plan."
+      );
+    }
+
+    // Step 2: Create Razorpay order using the existing payment route.
+    const orderResponse = await fetch(
+      `${API_URL}/api/payments/create-order`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
       }
     );
 
-    if (response.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("restaurant");
+    const orderData = await orderResponse.json();
 
-      setShowWelcome(false);
-
-      navigate("/login", {
-        replace: true,
-      });
-
-      return;
-    }
-
-    if (!response.ok) {
+    if (!orderResponse.ok) {
       throw new Error(
-        "Failed to refresh account information"
+        orderData.message || "Unable to create Razorpay order."
       );
     }
 
-    const data =
-      await response.json();
+    const order = orderData.order;
 
-    // ==========================================
-    // VALIDATE ACCOUNT DATA
-    // ==========================================
-
-    if (
-      !data.user ||
-      !data.restaurant
-    ) {
-      throw new Error(
-        "Account information is incomplete"
-      );
+    if (!order?.id || !order?.key || !order?.amount) {
+      throw new Error("Invalid Razorpay order response.");
     }
 
-    const subscription =
-      data.restaurant.subscription;
+    // Step 3: Open Razorpay Checkout.
+    const razorpay = new window.Razorpay({
+      key: order.key,
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency || "INR",
+      name: "DineFlow",
+      description: `${plan.name} Subscription`,
+      theme: {
+        color: "#111827",
+      },
 
-    const status =
-      subscription?.status;
+      handler: async (paymentResponse) => {
+        try {
+          // Step 4: Verify payment through the existing backend.
+          const verifyResponse = await fetch(
+            `${API_URL}/api/payments/verify`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(paymentResponse),
+            }
+          );
 
-    // ==========================================
-    // MAKE SURE TRIAL WAS ACTUALLY ACTIVATED
-    // ==========================================
+          const verification = await verifyResponse.json();
 
-    const hasAccess =
-      status === "TRIALING" ||
-      status === "ACTIVE";
+          if (!verifyResponse.ok) {
+            throw new Error(
+              verification.message || "Payment verification failed."
+            );
+          }
 
-    if (!hasAccess) {
-      throw new Error(
-        "Your free trial is not active yet. Please try again."
-      );
-    }
+          // Step 5: Refresh account and subscription information.
+          const accountResponse = await fetch(
+            `${API_URL}/api/auth/me`,
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
 
-    console.log(
-      "✅ Trial verified:",
-      {
-        plan:
-          subscription.plan,
+          if (!accountResponse.ok) {
+            throw new Error(
+              "Payment was verified, but account refresh failed."
+            );
+          }
 
-        status:
-          subscription.status,
+          const account = await accountResponse.json();
 
-        trialEndsAt:
-          subscription.trialEndsAt,
-      }
-    );
+          if (!account.user || !account.restaurant) {
+            throw new Error("Account information is incomplete.");
+          }
 
-    // ==========================================
-    // IMPORTANT
-    //
-    // Update React AuthContext AND localStorage.
-    //
-    // Previously only localStorage was updated,
-    // which caused ProtectedRoute to use stale
-    // subscription data.
-    // ==========================================
+          updateSession(account.user, account.restaurant);
 
-    updateSession(
-      data.user,
-      data.restaurant
-    );
+          setAccountData(account);
+          setSubscription(
+            account.restaurant.subscription ?? null
+          );
 
-    // ==========================================
-    // CLOSE POPUP
-    // ==========================================
+          navigate("/admin", { replace: true });
+        } catch (err) {
+          console.error("Payment verification error:", err);
 
-    setShowWelcome(false);
+          setError(
+            err.message ||
+              "Unable to verify payment. Check your payment status before retrying."
+          );
+        } finally {
+          setLoadingPlan(null);
+        }
+      },
 
-    // ==========================================
-    // ENTER DINEFLOW
-    // ==========================================
-
-    navigate("/admin", {
-      replace: true,
+      modal: {
+        ondismiss: () => {
+          setLoadingPlan(null);
+        },
+      },
     });
-  } catch (error) {
-    console.error(
-      "❌ Failed to enter DineFlow:",
-      error
-    );
+
+    razorpay.on("payment.failed", (failure) => {
+      console.error("Razorpay payment failed:", failure.error);
+
+      setError(
+        failure.error?.description ||
+          "Payment failed. Please try again."
+      );
+
+      setLoadingPlan(null);
+    });
+
+    razorpay.open();
+  } catch (err) {
+    console.error("Buy plan error:", err);
 
     setError(
-      error.message ||
-        "Unable to enter DineFlow. Please try again."
+      err.message || "Unable to initiate subscription payment."
     );
 
-    // Keep popup open so the user can retry.
-    // DO NOT navigate to /admin when verification
-    // fails.
+    setLoadingPlan(null);
   }
 };
 
+  const handleContinue = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        setShowWelcome(false);
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("restaurant");
+
+        setShowWelcome(false);
+        navigate("/login", { replace: true });
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh account information.");
+      }
+
+      const data = await response.json();
+
+      if (!data.user || !data.restaurant) {
+        throw new Error("Account information is incomplete.");
+      }
+
+      const status = data.restaurant.subscription?.status;
+
+      if (!["TRIALING", "ACTIVE"].includes(status)) {
+        throw new Error("Your trial is not active yet.");
+      }
+
+      updateSession(data.user, data.restaurant);
+      setAccountData(data);
+      setSubscription(data.restaurant.subscription ?? null);
+      setShowWelcome(false);
+
+      navigate("/admin", { replace: true });
+    } catch (err) {
+      console.error("Failed to enter DineFlow:", err);
+      setError(
+        err.message || "Unable to enter DineFlow. Please try again."
+      );
+    }
+  };
 
   return (
     <div className="subscription-page">
-
-      {/* ======================================
-          HEADER
-      ====================================== */}
-
       <header className="subscription-header">
-
         <div className="subscription-brand">
-
-          <div className="subscription-brand-icon">
-            🍽️
-          </div>
-
+          <div className="subscription-brand-icon">🍽️</div>
           <div>
-            <strong>
-              DineFlow
-            </strong>
-
-            <span>
-              Restaurant OS
-            </span>
+            <strong>DineFlow</strong>
+            <span>Restaurant OS</span>
           </div>
-
         </div>
 
-        <div className="trial-badge">
-          🎉 3-Day Free Trial
-        </div>
-
+        <div className="trial-badge">🎉 1-Day Free Trial</div>
       </header>
 
-      {/* ======================================
-          HERO
-      ====================================== */}
-
       <section className="subscription-hero">
-
         <span className="subscription-eyebrow">
           SIMPLE & TRANSPARENT PRICING
         </span>
@@ -477,354 +471,205 @@ const handleContinue = async () => {
         </h1>
 
         <p>
-          Start with a 3-day free trial.
-          No complicated setup. Choose your
-          billing period and grow with DineFlow.
+          Start with a 1-day free trial. No complicated setup.
+          Choose your billing period and grow with DineFlow.
         </p>
-
       </section>
 
-      {/* ======================================
-          BILLING SELECTOR
-      ====================================== */}
-
       <div className="billing-selector-wrapper">
-
         <div className="billing-selector">
-
-          {Object.entries(
-            billingOptions
-          ).map(
-            ([key, option]) => (
-
-              <button
-                key={key}
-                type="button"
-                className={
-                  billingPeriod === key
-                    ? "active"
-                    : ""
-                }
-                onClick={() => {
-                  setBillingPeriod(key);
-                  setError("");
-                }}
-              >
-
-                <span>
-                  {option.label}
-                </span>
-
-                {option.saving && (
-                  <small>
-                    {option.saving}
-                  </small>
-                )}
-
-              </button>
-
-            )
-          )}
-
+          {Object.entries(billingOptions).map(([key, option]) => (
+            <button
+              key={key}
+              type="button"
+              className={billingPeriod === key ? "active" : ""}
+              onClick={() => {
+                setBillingPeriod(key);
+                setError("");
+              }}
+            >
+              <span>{option.label}</span>
+              {option.saving && <small>{option.saving}</small>}
+            </button>
+          ))}
         </div>
-
       </div>
 
-      {/* ======================================
-          ERROR
-      ====================================== */}
+      {trialAlreadyUsed && !paidSubscriptionActive && (
+        <div className="subscription-error">
+          Your free trial has already been used. Choose a plan to continue.
+        </div>
+      )}
 
       {error && (
-        <div
-          className="subscription-error"
-        >
+        <div className="subscription-error">
           {error}
         </div>
       )}
 
-      {/* ======================================
-          PLANS
-      ====================================== */}
-
       <section className="subscription-plans">
-
         {plans.map((plan) => {
+          const price = selectedBilling.prices[plan.id];
+          const monthlyEquivalent =
+            billingPeriod === "twelveMonths"
+              ? Math.round(price / 12)
+              : null;
 
-          const price =
-            selectedBilling.prices[
-              plan.id
-            ];
-
-          let monthlyEquivalent =
-            null;
-
-          if (
-            billingPeriod ===
-            "sixMonths"
-          ) {
-            monthlyEquivalent =
-              Math.round(price / 6);
-          }
-
-          if (
-            billingPeriod ===
-            "twelveMonths"
-          ) {
-            monthlyEquivalent =
-              Math.round(price / 12);
-          }
-
-          const isLoading =
-            loadingPlan === plan.id;
+          const isLoading = loadingPlan === plan.id;
 
           return (
             <article
               key={plan.id}
               className={`subscription-card ${
-                plan.popular
-                  ? "popular"
-                  : ""
+                plan.popular ? "popular" : ""
               }`}
             >
-
               {plan.popular && (
-                <div className="popular-badge">
-                  MOST POPULAR
-                </div>
+                <div className="popular-badge">MOST POPULAR</div>
               )}
 
               <div className="subscription-card-header">
-
-                <h2>
-                  {plan.name}
-                </h2>
-
-                <p>
-                  {plan.description}
-                </p>
-
+                <h2>{plan.name}</h2>
+                <p>{plan.description}</p>
               </div>
 
               <div className="subscription-price">
-
-                <span className="currency">
-                  ₹
-                </span>
-
-                <strong>
-                  {price.toLocaleString(
-                    "en-IN"
-                  )}
-                </strong>
-
+                <span className="currency">₹</span>
+                <strong>{price.toLocaleString("en-IN")}</strong>
                 <span className="price-period">
                   {selectedBilling.suffix}
                 </span>
-
               </div>
 
               {monthlyEquivalent && (
                 <div className="monthly-equivalent">
-                  ≈ ₹
-                  {monthlyEquivalent.toLocaleString(
-                    "en-IN"
-                  )}
-                  /month
+                  ≈ ₹{monthlyEquivalent.toLocaleString("en-IN")}/month
                 </div>
               )}
 
-              <div className="trial-message">
-                🎁 3-day free trial included
-              </div>
+              {!trialAlreadyUsed && (
+                <div className="trial-message">
+                  🎁 1-day free trial included
+                </div>
+              )}
 
               <button
                 type="button"
                 className="start-trial-button"
                 disabled={
-                  loadingPlan !== null
+                  subscriptionLoading ||
+                  loadingPlan !== null ||
+                  paidSubscriptionActive
                 }
-                onClick={() =>
-                  handleStartTrial(plan)
-                }
+                onClick={() => {
+                  if (trialAlreadyUsed) {
+                    handleBuyPlan(plan);
+                  } else {
+                    handleStartTrial(plan);
+                  }
+                }}
               >
-                {isLoading
-                  ? "Starting Trial..."
-                  : "Start Free Trial →"}
+                {subscriptionLoading
+                  ? "Checking Subscription..."
+                  : isLoading
+                    ? trialAlreadyUsed
+                      ? "Processing Payment..."
+                      : "Starting Trial..."
+                    : paidSubscriptionActive
+                      ? "Plan Active ✓"
+                      : trialAlreadyUsed
+                        ? "Buy Plan →"
+                        : "Start Free Trial →"}
               </button>
 
               <div className="features-divider" />
 
-              <h3>
-                What's included
-              </h3>
+              <h3>What's included</h3>
 
               <ul className="subscription-features">
-
-                {plan.features.map(
-                  (feature) => (
-                    <li
-                      key={feature}
-                    >
-                      <span className="feature-check">
-                        ✓
-                      </span>
-
-                      <span>
-                        {feature}
-                      </span>
-                    </li>
-                  )
-                )}
-
+                {plan.features.map((feature) => (
+                  <li key={feature}>
+                    <span className="feature-check">✓</span>
+                    <span>{feature}</span>
+                  </li>
+                ))}
               </ul>
-
             </article>
           );
         })}
-
       </section>
-
-      {/* ======================================
-          FOOTER
-      ====================================== */}
 
       <section className="subscription-footer">
-
         <div>
-
-          <strong>
-            Start risk-free with DineFlow.
-          </strong>
-
+          <strong>Start with DineFlow.</strong>
           <p>
-            Your 3-day trial gives you time to
-            experience DineFlow before committing
-            to a paid subscription.
+            Experience digital ordering, streamline restaurant
+            operations, and choose the right plan for your business.
           </p>
-
         </div>
-
       </section>
-
-      {/* ======================================
-          WELCOME POPUP
-      ====================================== */}
 
       {showWelcome && (
         <div className="trial-success-overlay">
-
-          {/* Floating particles */}
-
-          <div className="success-particle particle-one">
-            ✦
-          </div>
-
-          <div className="success-particle particle-two">
-            ✦
-          </div>
-
-          <div className="success-particle particle-three">
-            ✦
-          </div>
-
-          <div className="success-particle particle-four">
-            ✦
-          </div>
-
-          <div className="success-particle particle-five">
-            ✦
-          </div>
-
-          {/* Popup */}
+          <div className="success-particle particle-one">✦</div>
+          <div className="success-particle particle-two">✦</div>
+          <div className="success-particle particle-three">✦</div>
+          <div className="success-particle particle-four">✦</div>
+          <div className="success-particle particle-five">✦</div>
 
           <div className="trial-success-card">
-
-            {/* Animated check */}
-
             <div className="success-check-wrapper">
-
               <div className="success-check-circle">
                 <span>✓</span>
               </div>
-
             </div>
 
-            {/* Greeting */}
-
             <div className="trial-success-content">
-
               <div className="success-small-title">
                 🎉 YOU'RE ALL SET
               </div>
 
-              <h2>
-                Welcome to DineFlow!
-              </h2>
+              <h2>Welcome to DineFlow!</h2>
 
               <p>
-                Your restaurant is now ready
-                to start its journey with
-                DineFlow.
+                Your restaurant is now ready to start its journey
+                with DineFlow.
               </p>
 
               {startedPlan && (
                 <div className="trial-details">
-
                   <div>
-                    <span>
-                      Plan
-                    </span>
-
-                    <strong>
-                      {startedPlan.name}
-                    </strong>
+                    <span>Plan</span>
+                    <strong>{startedPlan.name}</strong>
                   </div>
 
                   <div>
-                    <span>
-                      Billing
-                    </span>
-
-                    <strong>
-                      {startedPlan.billingPeriod}
-                    </strong>
+                    <span>Billing</span>
+                    <strong>{startedPlan.billingPeriod}</strong>
                   </div>
 
                   <div>
-                    <span>
-                      Trial
-                    </span>
-
-                    <strong>
-                      3 Days Free
-                    </strong>
+                    <span>Trial</span>
+                    <strong>3 Days Free</strong>
                   </div>
-
                 </div>
               )}
 
               <div className="trial-success-message">
-                🚀 Let's get your restaurant
-                ready for success.
+                🚀 Let's get your restaurant ready for success.
               </div>
 
               <button
                 type="button"
                 className="trial-success-button"
-                onClick={
-                  handleContinue
-                }
+                onClick={handleContinue}
               >
-                Enter DineFlow
-                <span>→</span>
+                Enter DineFlow <span>→</span>
               </button>
-
             </div>
-
           </div>
         </div>
       )}
-
     </div>
   );
 }

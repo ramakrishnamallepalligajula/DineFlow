@@ -5,7 +5,7 @@ const plans = {
       amount: 999,
     },
     yearly: {
-      amount: 8999,
+      amount: 9999,
     },
     billRetentionDays: 30,
   },
@@ -29,7 +29,7 @@ const plans = {
     yearly: {
       amount: 24999,
     },
-    billRetentionDays: null, // Unlimited retention
+    billRetentionDays: 365, // Unlimited retention
   },
 };
 

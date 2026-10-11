@@ -1,8 +1,5 @@
-
 import { useEffect, useMemo, useState } from "react";
-
 import { useNavigate } from "react-router-dom";
-
 import socket from "../socket";
 
 const API_URL = (() => {
@@ -161,6 +158,29 @@ function OrderStatus() {
         setSession(sessionData.session);
         setOrders(sessionData.orders || []);
 
+        // Recover an existing bill after refresh.
+        const billResponse = await fetch(
+          `${API_URL}/api/bill-payments/session/${encodeURIComponent(
+            sessionData.session.sessionId
+          )}/bill`
+        );
+
+        const billData = await billResponse.json();
+
+        if (billResponse.ok && billData.success) {
+          setBill(billData.bill);
+        } else if (
+          billResponse.status === 404 &&
+          billData.code === "BILL_NOT_CREATED"
+        ) {
+          // Normal when the customer has not requested a bill yet.
+          setBill(null);
+        } else {
+          throw new Error(
+            billData.message || "Unable to recover the bill."
+          );
+        }
+
         // SAVE SESSION
         const savedSessionData = {
           sessionId: sessionData.session.sessionId,
@@ -228,6 +248,14 @@ function OrderStatus() {
       return;
     }
 
+    const activeSessionId =
+      order?.sessionId || session?.sessionId;
+
+    if (!activeSessionId) {
+      alert("Table session ID is missing. Please refresh the page.");
+      return;
+    }
+
     try {
       setPayingCash(true);
 
@@ -242,6 +270,7 @@ function OrderStatus() {
           },
           body: JSON.stringify({
             billId: bill._id,
+            sessionId: activeSessionId,
           }),
         }
       );
@@ -257,7 +286,7 @@ function OrderStatus() {
       setBill(data.bill);
 
       alert(
-        "💵 Payment successful!\n\n🧾 Receipt is being printed."
+        "💵 Cash payment selected. Please pay the restaurant staff. Your bill will be marked paid only after staff confirms collection."
       );
     } catch (error) {
       console.error("❌ Cash payment error:", error);
@@ -311,6 +340,14 @@ function OrderStatus() {
       return;
     }
 
+    const activeSessionId =
+      order?.sessionId || session?.sessionId;
+
+    if (!activeSessionId) {
+      alert("Table session ID is missing. Please refresh the page.");
+      return;
+    }
+
     try {
       setPayingOnline(true);
 
@@ -331,6 +368,7 @@ function OrderStatus() {
           },
           body: JSON.stringify({
             billId: bill._id,
+            sessionId: activeSessionId,
           }),
         }
       );
@@ -369,6 +407,7 @@ function OrderStatus() {
                 },
                 body: JSON.stringify({
                   billId: bill._id,
+                  sessionId: activeSessionId,
                   razorpay_order_id:
                     paymentResponse.razorpay_order_id,
                   razorpay_payment_id:
@@ -391,14 +430,8 @@ function OrderStatus() {
 
             setBill(verifyData.bill);
 
-            setSession((currentSession) =>
-              currentSession
-                ? {
-                    ...currentSession,
-                    status: "closed",
-                  }
-                : currentSession
-            );
+            // Do not close the table session from the customer UI.
+            // The backend/staff workflow controls session closure.
 
             localStorage.setItem(
               "dineflowLastPayment",
@@ -1118,13 +1151,19 @@ function OrderStatus() {
                 </p>
 
                 {paymentError && (
-                  <p role="alert" style={{ color: "#b42318", fontSize: "13px" }}>
+                  <p
+                    role="alert"
+                    style={{ color: "#b42318", fontSize: "13px" }}
+                  >
                     {paymentError}
                   </p>
                 )}
 
                 {paymentMessage && (
-                  <p role="status" style={{ color: "#287a43", fontSize: "13px" }}>
+                  <p
+                    role="status"
+                    style={{ color: "#287a43", fontSize: "13px" }}
+                  >
                     {paymentMessage}
                   </p>
                 )}
@@ -1174,13 +1213,19 @@ function OrderStatus() {
             order.paymentMethod && (
               <div style={{ marginTop: "14px", textAlign: "left" }}>
                 {paymentError && (
-                  <p role="alert" style={{ color: "#b42318", fontSize: "13px" }}>
+                  <p
+                    role="alert"
+                    style={{ color: "#b42318", fontSize: "13px" }}
+                  >
                     {paymentError}
                   </p>
                 )}
 
                 {paymentMessage && (
-                  <p role="status" style={{ color: "#287a43", fontSize: "13px" }}>
+                  <p
+                    role="status"
+                    style={{ color: "#287a43", fontSize: "13px" }}
+                  >
                     {paymentMessage}
                   </p>
                 )}
@@ -1447,7 +1492,7 @@ function OrderStatus() {
             }}
           >
             <span>Amount Due</span>
-            <span>₹{bill.totalAmount ?? bill.totalPrice ?? 0}</span>
+            <span>₹{bill.total ?? bill.totalAmount ?? bill.totalPrice ?? 0}</span>
           </div>
 
           {bill.paymentStatus === "PAID" ? (

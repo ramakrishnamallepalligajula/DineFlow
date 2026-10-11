@@ -610,56 +610,74 @@ const finalItems =
     Array.from(
     combinedItems.values());
 
-// ===================================================
-// GST CALCULATION
-// ===================================================
 
-// DineFlow fixed GST:
-// Total GST = 5%
-// CGST = 2.5%
-// SGST = 2.5%
-//
-// IMPORTANT:
-// Customer-facing order total already includes GST.
+        // ===================================================
+        // GST CALCULATION — GST EXCLUSIVE PRICES
+        // ===================================================
 
-const GST_RATE = 5;
-const CGST_RATE = 2.5;
-const SGST_RATE = 2.5;
+        const restaurant = await Restaurant.findById(
+          session.restaurantId
+        ).select("taxSettings");
 
-// Final amount customer sees/pays
-const total = Number(
-  Number(totalPrice).toFixed(2)
-);
+        if (!restaurant) {
+          return res.status(404).json({
+            message: "Restaurant not found.",
+          });
+        }
 
-// Reverse-calculate taxable subtotal
-const subtotal = Number(
-  (total / (1 + GST_RATE / 100)).toFixed(2)
-);
+        const gstEnabled =
+          restaurant.taxSettings?.gstEnabled === true;
 
-// GST amount must reconcile exactly with final total
-const tax = Number(
-  (total - subtotal).toFixed(2)
-);
+        const configuredGstRate = Number(
+          restaurant.taxSettings?.gstRate ?? 5
+        );
 
-// Split GST equally
-const cgst = Number(
-  (tax / 2).toFixed(2)
-);
+        if (
+          !Number.isFinite(configuredGstRate) ||
+          configuredGstRate < 0 ||
+          configuredGstRate > 100
+        ) {
+          return res.status(400).json({
+            message: "Invalid GST configuration.",
+          });
+        }
 
-const sgst = Number(
-  (tax - cgst).toFixed(2)
-);
+        const gstRate = gstEnabled
+          ? configuredGstRate
+          : 0;
 
-console.log("🧾 GST calculation:", {
-  gstRate: GST_RATE,
-  cgstRate: CGST_RATE,
-  sgstRate: SGST_RATE,
-  subtotal,
-  cgst,
-  sgst,
-  tax,
-  total,
-});
+        // Order prices are the subtotal BEFORE GST.
+        const subtotal = Number(
+          Number(totalPrice).toFixed(2)
+        );
+
+        const tax = Number(
+          (subtotal * gstRate / 100).toFixed(2)
+        );
+
+        const cgst = Number(
+          (tax / 2).toFixed(2)
+        );
+
+        const sgst = Number(
+          (tax - cgst).toFixed(2)
+        );
+
+        // Customer pays subtotal + GST.
+        const total = Number(
+          (subtotal + tax).toFixed(2)
+        );
+
+        console.log("🧾 GST calculation:", {
+          gstEnabled,
+          gstRate,
+          subtotal,
+          cgst,
+          sgst,
+          tax,
+          total,
+        });
+
 
 // ===================================================
 // SAVE BILL TO MONGODB
@@ -688,7 +706,7 @@ const bill = await Bill.create({
 
   subtotal,
 
-  taxRate: GST_RATE,
+  taxRate: gstRate,
 
   tax,
 
@@ -791,7 +809,7 @@ console.log("🧾 Bill saved to MongoDB:", bill._id);
 
           subtotal,
 
-          taxRate: GST_RATE,
+          taxRate: gstRate,
 
           tax,
 

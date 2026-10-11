@@ -17,8 +17,6 @@ const addBillingPeriod = (date, billingCycle) => {
 
   if (billingCycle === "MONTHLY") {
     result.setMonth(result.getMonth() + 1);
-  } else if (billingCycle === "SIX_MONTHS") {
-    result.setMonth(result.getMonth() + 6);
   } else if (billingCycle === "TWELVE_MONTHS") {
     result.setFullYear(result.getFullYear() + 1);
   } else {
@@ -29,8 +27,12 @@ const addBillingPeriod = (date, billingCycle) => {
 };
 
 /*
-  CREATE RAZORPAY ORDER
+=========================================================
+CREATE RAZORPAY ORDER
+POST /api/payments/create-order
+=========================================================
 */
+
 router.post(
   "/create-order",
   authMiddleware,
@@ -39,18 +41,33 @@ router.post(
     try {
       const restaurantId = req.user.restaurantId;
 
-      if (!process.env.RAZORPAY_KEY_ID) {
-        return res.status(500).json({
-          message: "Razorpay Key ID is not configured",
+      if (!restaurantId) {
+        return res.status(400).json({
+          message: "Restaurant is not linked to this account",
         });
       }
 
-      if (!process.env.RAZORPAY_KEY_SECRET) {
+      if (
+        !process.env.RAZORPAY_KEY_ID ||
+        !process.env.RAZORPAY_KEY_SECRET
+      ) {
         return res.status(500).json({
-          message: "Razorpay Key Secret is not configured",
+          message: "Razorpay credentials are not configured",
         });
       }
 
+      const restaurant = await Restaurant.findOne({
+        _id: restaurantId,
+        owner: req.user.userId,
+      });
+
+      if (!restaurant) {
+        return res.status(404).json({
+          message: "Restaurant not found",
+        });
+      }
+
+      // Find the subscription selected by the frontend.
       const subscription = await Subscription.findOne({
         restaurantId,
         status: "pending",
@@ -58,37 +75,26 @@ router.post(
 
       if (!subscription) {
         return res.status(404).json({
-          message: "No pending subscription found",
+          message: "No pending subscription found. Please select a plan again.",
         });
       }
 
-      const restaurant = await Restaurant.findOne({
-            _id: restaurantId,
-            owner: req.user.userId,
-          });
-
-      if (!restaurant) {
-          return res.status(404).json({
-            message: "Restaurant not found",
-            });
-          }
-
-      if (subscription.orderId !== razorpay_order_id) {
-          return res.status(400).json({
-            message: "Order does not match the subscription",
-            });
-          }
-
       const amountInPaise = Math.round(
-        subscription.amount * 100
+        Number(subscription.amount) * 100
       );
 
-      if (amountInPaise <= 0) {
+      if (
+        !Number.isSafeInteger(amountInPaise) ||
+        amountInPaise <= 0
+      ) {
         return res.status(400).json({
           message: "Invalid subscription amount",
         });
       }
 
+      // Create the order with Razorpay first.
+      // Do not compare razorpay_order_id here:
+      // Razorpay has not returned an order ID yet.
       const razorpayOrder = await razorpay.orders.create({
         amount: amountInPaise,
         currency: "INR",
@@ -101,6 +107,11 @@ router.post(
         },
       });
 
+      // Save the newly created order against this subscription.
+      subscription.orderId = razorpayOrder.id;
+      await subscription.save();
+
+      // Record the payment attempt.
       const payment = await Payment.create({
         restaurantId,
         subscriptionId: subscription._id,
@@ -111,11 +122,8 @@ router.post(
         status: "created",
       });
 
-      subscription.orderId = razorpayOrder.id;
-      await subscription.save();
-
       return res.status(201).json({
-        message: "Razorpay order created",
+        message: "Razorpay order created successfully",
         order: {
           id: razorpayOrder.id,
           amount: razorpayOrder.amount,
@@ -136,8 +144,12 @@ router.post(
 );
 
 /*
-  VERIFY RAZORPAY PAYMENT
+=========================================================
+VERIFY RAZORPAY PAYMENT
+POST /api/payments/verify
+=========================================================
 */
+
 router.post(
   "/verify",
   authMiddleware,
@@ -160,7 +172,30 @@ router.post(
         });
       }
 
+      if (!process.env.RAZORPAY_KEY_SECRET) {
+        return res.status(500).json({
+          message: "Razorpay credentials are not configured",
+        });
+      }
+
       const restaurantId = req.user.restaurantId;
+
+      if (!restaurantId) {
+        return res.status(400).json({
+          message: "Restaurant is not linked to this account",
+        });
+      }
+
+      const restaurant = await Restaurant.findOne({
+        _id: restaurantId,
+        owner: req.user.userId,
+      });
+
+      if (!restaurant) {
+        return res.status(404).json({
+          message: "Restaurant not found",
+        });
+      }
 
       const payment = await Payment.findOne({
         restaurantId,
@@ -170,65 +205,6 @@ router.post(
       if (!payment) {
         return res.status(404).json({
           message: "Payment record not found",
-        });
-      }
-
-      const generatedSignature = crypto
-        .createHmac(
-          "sha256",
-          process.env.RAZORPAY_KEY_SECRET
-        )
-        .update(
-          `${payment.orderId}|${razorpay_payment_id}`
-        )
-        .digest("hex");
-
-      const expected = Buffer.from(generatedSignature, "utf8");
-      const received = Buffer.from(razorpay_signature, "utf8");
-
-      if (
-        expected.length !== received.length ||
-        !crypto.timingSafeEqual(expected, received)
-      ) {
-        return res.status(400).json({
-          message: "Invalid payment signature",
-        });
-      }
-
-      const razorpayPayment = await razorpay.payments.fetch(
-        razorpay_payment_id
-      );
-
-      if (razorpayPayment.status !== "captured") {
-        return res.status(400).json({
-          message: "Payment has not been captured yet",
-          status: razorpayPayment.status,
-        });
-      }
-
-      if (razorpayPayment.order_id !== payment.orderId) {
-        return res.status(400).json({
-          message: "Payment does not match the order",
-        });
-      }
-
-      if (
-        razorpayPayment.amount !==
-        Math.round(payment.amount * 100)
-      ) {
-        return res.status(400).json({
-          message: "Payment amount does not match",
-        });
-      }
-
-      if (payment.status === "paid") {
-        const existingSubscription = await Subscription.findById(
-          payment.subscriptionId
-        );
-
-        return res.json({
-          message: "Payment already verified",
-          subscription: existingSubscription,
         });
       }
 
@@ -243,38 +219,117 @@ router.post(
         });
       }
 
+      // The order ID comparison belongs here, during verification.
+      if (subscription.orderId !== razorpay_order_id) {
+        return res.status(400).json({
+          message: "Order does not match the subscription",
+        });
+      }
+
+      // Verify the Razorpay signature on the server.
+      const generatedSignature = crypto
+        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+        .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+        .digest("hex");
+
+      const expected = Buffer.from(generatedSignature, "hex");
+      const received = Buffer.from(razorpay_signature, "hex");
+
+      if (
+        expected.length !== received.length ||
+        !crypto.timingSafeEqual(expected, received)
+      ) {
+        return res.status(400).json({
+          message: "Invalid payment signature",
+        });
+      }
+
+      // Confirm payment details directly with Razorpay.
+      const razorpayPayment = await razorpay.payments.fetch(
+        razorpay_payment_id
+      );
+
+      if (razorpayPayment.order_id !== razorpay_order_id) {
+        return res.status(400).json({
+          message: "Payment does not match the Razorpay order",
+        });
+      }
+
+      if (razorpayPayment.status !== "captured") {
+        return res.status(400).json({
+          message: "Payment has not been captured yet",
+          status: razorpayPayment.status,
+        });
+      }
+
+      if (
+        razorpayPayment.amount !==
+        Math.round(Number(payment.amount) * 100)
+      ) {
+        return res.status(400).json({
+          message: "Payment amount does not match",
+        });
+      }
+
+      if (razorpayPayment.currency !== payment.currency) {
+        return res.status(400).json({
+          message: "Payment currency does not match",
+        });
+      }
+
+      // Make repeated verification requests safe.
+      if (payment.status === "paid") {
+        return res.json({
+          message: "Payment already verified",
+          subscription,
+          restaurant: {
+            id: restaurant._id,
+            subscription: restaurant.subscription,
+          },
+        });
+      }
+
+      if (subscription.status !== "pending") {
+        return res.status(409).json({
+          message: "Subscription is no longer pending",
+        });
+      }
+
       const startDate = new Date();
+
+      // If renewing an active subscription, start after its current expiry.
+      const existingExpiry = restaurant.subscription?.currentPeriodEnd;
+
+      const effectiveStart =
+        restaurant.subscription?.status === "ACTIVE" &&
+        existingExpiry &&
+        new Date(existingExpiry) > startDate
+          ? new Date(existingExpiry)
+          : startDate;
+
       const expiryDate = addBillingPeriod(
-        startDate,
+        effectiveStart,
         subscription.billingCycle
       );
 
+      // Update the payment record.
       payment.paymentId = razorpay_payment_id;
       payment.signature = razorpay_signature;
       payment.status = "paid";
       payment.paidAt = new Date();
+
       await payment.save();
 
+      // Activate the subscription ledger.
       subscription.status = "active";
       subscription.paymentProvider = "razorpay";
       subscription.paymentId = razorpay_payment_id;
-      subscription.startDate = startDate;
+      subscription.startDate = effectiveStart;
       subscription.expiryDate = expiryDate;
+
       await subscription.save();
 
-      // IMPORTANT: Restaurant.subscription is the single source of
-      // truth used by ProtectedRoute and public customer ordering.
-      const restaurant = await Restaurant.findOne({
-        _id: restaurantId,
-        owner: req.user.userId,
-      });
-
-      if (!restaurant) {
-        return res.status(404).json({
-          message: "Restaurant not found",
-        });
-      }
-
+      // Activate the restaurant subscription.
       restaurant.subscription = {
         plan: subscription.plan,
         billingPeriod: subscription.billingCycle,
@@ -283,14 +338,14 @@ router.post(
           restaurant.subscription?.trialStartedAt || null,
         trialEndsAt:
           restaurant.subscription?.trialEndsAt || null,
-        currentPeriodStart: startDate,
+        currentPeriodStart: effectiveStart,
         currentPeriodEnd: expiryDate,
       };
 
       await restaurant.save();
 
       return res.json({
-        message: "Payment verified successfully",
+        message: "Payment verified and subscription activated",
         subscription: {
           id: subscription._id,
           plan: subscription.plan,
