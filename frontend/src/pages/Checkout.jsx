@@ -37,6 +37,9 @@ function Checkout() {
   const [placingOrder, setPlacingOrder] = useState(false);
 
   const [customerPhone, setCustomerPhone] = useState("");
+  
+  const [whatsappConsent, setWhatsappConsent] = useState(false);
+
 
   
   
