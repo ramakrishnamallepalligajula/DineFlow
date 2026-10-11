@@ -14,19 +14,22 @@ const API_URL = (
   import.meta.env.VITE_API_URL || "http://localhost:3000"
 ).replace(/\/+$/, "");
 
+// App authentication is isolated per browser tab.
+const sessionStore = sessionStorage;
+
 function readStoredObject(key) {
   try {
-    const value = localStorage.getItem(key);
+    const value = sessionStore.getItem(key);
     return value ? JSON.parse(value) : null;
   } catch {
-    localStorage.removeItem(key);
+    sessionStore.removeItem(key);
     return null;
   }
 }
 
 export function AuthProvider({ children }) {
   const [token, setToken] = useState(
-    () => localStorage.getItem("token")
+    () => sessionStore.getItem("token")
   );
 
   const [user, setUser] = useState(
@@ -38,31 +41,29 @@ export function AuthProvider({ children }) {
   );
 
   const [loading, setLoading] = useState(
-    () => Boolean(localStorage.getItem("token"))
+    () => Boolean(sessionStore.getItem("token"))
   );
 
-  // Prevent older requests from overwriting a newer login/session.
   const requestIdRef = useRef(0);
 
   const login = useCallback(
     (newToken, newUser, newRestaurant = null) => {
-      // Invalidate all refresh requests already in progress.
       requestIdRef.current += 1;
 
       if (!newToken || !newUser?.role) {
         throw new Error("Invalid login response.");
       }
 
-      localStorage.setItem("token", newToken);
-      localStorage.setItem("user", JSON.stringify(newUser));
+      sessionStore.setItem("token", newToken);
+      sessionStore.setItem("user", JSON.stringify(newUser));
 
       if (newRestaurant) {
-        localStorage.setItem(
+        sessionStore.setItem(
           "restaurant",
           JSON.stringify(newRestaurant)
         );
       } else {
-        localStorage.removeItem("restaurant");
+        sessionStore.removeItem("restaurant");
       }
 
       setToken(newToken);
@@ -74,12 +75,11 @@ export function AuthProvider({ children }) {
   );
 
   const logout = useCallback(() => {
-    // Prevent any in-flight request from restoring the old session.
     requestIdRef.current += 1;
 
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("restaurant");
+    sessionStore.removeItem("token");
+    sessionStore.removeItem("user");
+    sessionStore.removeItem("restaurant");
 
     setToken(null);
     setUser(null);
@@ -90,7 +90,7 @@ export function AuthProvider({ children }) {
   const updateSession = useCallback(
     (sessionUser, sessionRestaurant) => {
       if (sessionUser) {
-        localStorage.setItem(
+        sessionStore.setItem(
           "user",
           JSON.stringify(sessionUser)
         );
@@ -99,12 +99,12 @@ export function AuthProvider({ children }) {
 
       if (sessionRestaurant !== undefined) {
         if (sessionRestaurant) {
-          localStorage.setItem(
+          sessionStore.setItem(
             "restaurant",
             JSON.stringify(sessionRestaurant)
           );
         } else {
-          localStorage.removeItem("restaurant");
+          sessionStore.removeItem("restaurant");
         }
 
         setRestaurant(sessionRestaurant);
@@ -114,7 +114,7 @@ export function AuthProvider({ children }) {
   );
 
   const refreshUser = useCallback(async () => {
-    const savedToken = localStorage.getItem("token");
+    const savedToken = sessionStore.getItem("token");
 
     if (!savedToken) {
       requestIdRef.current += 1;
@@ -136,10 +136,9 @@ export function AuthProvider({ children }) {
         },
       });
 
-      // Ignore this response if a newer session has started.
       if (
         requestId !== requestIdRef.current ||
-        localStorage.getItem("token") !== savedToken
+        sessionStore.getItem("token") !== savedToken
       ) {
         return null;
       }
@@ -157,29 +156,28 @@ export function AuthProvider({ children }) {
 
       const data = await response.json();
 
-      if (!data?.user || !data.user.role) {
+      if (!data?.user?.role) {
         throw new Error(
           "The server returned an invalid user session."
         );
       }
 
-      // Check again before writing to storage.
       if (
         requestId !== requestIdRef.current ||
-        localStorage.getItem("token") !== savedToken
+        sessionStore.getItem("token") !== savedToken
       ) {
         return null;
       }
 
-      localStorage.setItem("user", JSON.stringify(data.user));
+      sessionStore.setItem("user", JSON.stringify(data.user));
 
       if (data.restaurant) {
-        localStorage.setItem(
+        sessionStore.setItem(
           "restaurant",
           JSON.stringify(data.restaurant)
         );
       } else {
-        localStorage.removeItem("restaurant");
+        sessionStore.removeItem("restaurant");
       }
 
       setToken(savedToken);
@@ -189,9 +187,6 @@ export function AuthProvider({ children }) {
       return data;
     } catch (error) {
       console.error("Failed to refresh user:", error);
-
-      // Keep the existing session on temporary network/server errors.
-      // Do not treat a network failure as proof that the token is invalid.
       return null;
     } finally {
       if (requestId === requestIdRef.current) {
@@ -201,46 +196,14 @@ export function AuthProvider({ children }) {
   }, [logout]);
 
   useEffect(() => {
-    if (localStorage.getItem("token")) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (sessionStore.getItem("token")) {
       refreshUser();
     } else {
       setLoading(false);
     }
   }, [refreshUser]);
 
-  // Keep token state synchronized with other tabs logging in/out.
-  useEffect(() => {
-    const handleStorage = (event) => {
-      if (
-        event.key !== "token" &&
-        event.key !== "user" &&
-        event.key !== "restaurant"
-      ) {
-        return;
-      }
-
-      requestIdRef.current += 1;
-
-      const storedToken = localStorage.getItem("token");
-      setToken(storedToken);
-      setUser(readStoredObject("user"));
-      setRestaurant(readStoredObject("restaurant"));
-
-      if (storedToken) {
-        setLoading(true);
-        refreshUser();
-      } else {
-        setLoading(false);
-      }
-    };
-
-    window.addEventListener("storage", handleStorage);
-
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-    };
-  }, [refreshUser]);
+  // Intentionally no cross-tab storage listener.
 
   const subscription = restaurant?.subscription || null;
   const subscriptionStatus = subscription?.status || null;

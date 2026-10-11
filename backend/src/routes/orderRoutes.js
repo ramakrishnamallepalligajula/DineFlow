@@ -615,68 +615,33 @@ const finalItems =
         // GST CALCULATION — GST EXCLUSIVE PRICES
         // ===================================================
 
-        const restaurant = await Restaurant.findById(
-          session.restaurantId
-        ).select("taxSettings");
 
-        if (!restaurant) {
-          return res.status(404).json({
-            message: "Restaurant not found.",
-          });
-        }
+const GST_RATE = 5;
+const CGST_RATE = 2.5;
+const SGST_RATE = 2.5;
 
-        const gstEnabled =
-          restaurant.taxSettings?.gstEnabled === true;
+// Menu subtotal BEFORE GST
+const subtotal = Number(Number(totalPrice).toFixed(2));
 
-        const configuredGstRate = Number(
-          restaurant.taxSettings?.gstRate ?? 5
-        );
+// Add 5% GST on top of subtotal
+const tax = Number(
+  (subtotal * GST_RATE / 100).toFixed(2)
+);
 
-        if (
-          !Number.isFinite(configuredGstRate) ||
-          configuredGstRate < 0 ||
-          configuredGstRate > 100
-        ) {
-          return res.status(400).json({
-            message: "Invalid GST configuration.",
-          });
-        }
+// Split GST into CGST and SGST
+const cgst = Number(
+  (tax / 2).toFixed(2)
+);
 
-        const gstRate = gstEnabled
-          ? configuredGstRate
-          : 0;
+const sgst = Number(
+  (tax - cgst).toFixed(2)
+);
 
-        // Order prices are the subtotal BEFORE GST.
-        const subtotal = Number(
-          Number(totalPrice).toFixed(2)
-        );
+// Final amount customer must pay
+const total = Number(
+  (subtotal + tax).toFixed(2)
+);
 
-        const tax = Number(
-          (subtotal * gstRate / 100).toFixed(2)
-        );
-
-        const cgst = Number(
-          (tax / 2).toFixed(2)
-        );
-
-        const sgst = Number(
-          (tax - cgst).toFixed(2)
-        );
-
-        // Customer pays subtotal + GST.
-        const total = Number(
-          (subtotal + tax).toFixed(2)
-        );
-
-        console.log("🧾 GST calculation:", {
-          gstEnabled,
-          gstRate,
-          subtotal,
-          cgst,
-          sgst,
-          tax,
-          total,
-        });
 
 
 // ===================================================

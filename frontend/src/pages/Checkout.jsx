@@ -38,7 +38,20 @@ function Checkout() {
 
   const [customerPhone, setCustomerPhone] = useState("");
 
-  const [whatsappConsent, setWhatsappConsent] = useState(false);
+  
+  
+  const subtotal = Number(totalPrice || 0);
+  const cgst = Number((subtotal * 0.025).toFixed(2));
+  const sgst = Number((subtotal * 0.025).toFixed(2));
+  const gst = Number((cgst + sgst).toFixed(2));
+  const grandTotal = Number((subtotal + gst).toFixed(2));
+
+  const formatRupees = (amount) =>
+    Number(amount).toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
 
   /*
 
@@ -1007,129 +1020,62 @@ localStorage.removeItem(idempotencyStorageKey);
 
       ================================================= */}
 
+      
+      {/* BILL SUMMARY */}
       <motion.section
-
         className="checkout-summary"
-
-        initial={{
-
-          opacity: 0,
-
-          y: 20,
-
-        }}
-
-        animate={{
-
-          opacity: 1,
-
-          y: 0,
-
-        }}
-
-        transition={{
-
-          delay: 0.35,
-
-          duration: 0.45,
-
-        }}
-
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.35, duration: 0.45 }}
       >
-
         <div className="summary-row">
-
           <span>Items</span>
-
-          <strong>
-
-            {totalItems}
-
-          </strong>
-
+          <strong>{totalItems}</strong>
         </div>
 
         <div className="summary-row">
-
           <span>Subtotal</span>
+          <strong>₹{formatRupees(subtotal)}</strong>
+        </div>
 
-          <strong>
+        <div className="summary-row">
+          <span>CGST (2.5%)</span>
+          <strong>₹{formatRupees(cgst)}</strong>
+        </div>
 
-            ₹
+        <div className="summary-row">
+          <span>SGST (2.5%)</span>
+          <strong>₹{formatRupees(sgst)}</strong>
+        </div>
 
-            {Number(
-
-              totalPrice || 0
-
-            ).toLocaleString("en-IN")}
-
-          </strong>
-
+        <div className="summary-row">
+          <span>Total GST (5%)</span>
+          <strong>₹{formatRupees(gst)}</strong>
         </div>
 
         <div className="summary-divider" />
 
         <div className="summary-total">
-
           <div>
-
-            <span>TOTAL</span>
-
-            <small>
-
-              Taxes / charges shown by
-
-              restaurant
-
-            </small>
-
+            <span>TOTAL PAYABLE</span>
+            <small>Including 5% GST</small>
           </div>
 
           <motion.strong
-
-            key={totalPrice}
-
-            initial={{
-
-              scale: 0.8,
-
-              opacity: 0,
-
-            }}
-
-            animate={{
-
-              scale: 1,
-
-              opacity: 1,
-
-            }}
-
+            key={grandTotal}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
             transition={{
-
               type: "spring",
-
               stiffness: 400,
-
               damping: 20,
-
             }}
-
           >
-
-            ₹
-
-            {Number(
-
-              totalPrice || 0
-
-            ).toLocaleString("en-IN")}
-
+            ₹{formatRupees(grandTotal)}
           </motion.strong>
-
         </div>
-
       </motion.section>
+
 
       {/* =================================================
 
