@@ -745,84 +745,6 @@ function OrderStatus() {
   };
 
   // =========================
-  // REQUEST BILL
-  // =========================
-
-  const handleRequestBill = async () => {
-    if (requestingBill || !order?.sessionId) return;
-
-    if (
-      session?.status === "bill_requested" ||
-      session?.status === "closed"
-    ) {
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Request the final bill for this table?"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      setRequestingBill(true);
-
-      const response = await fetch(
-        `${API_URL}/api/orders/session/${order.sessionId}/bill`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Order-Recovery-Token":
-              localStorage.getItem(
-                `dineflow:recovery:${order.tableId}`
-              ) || order.recoveryToken,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.message || "Failed to request bill"
-        );
-      }
-
-      console.log("🧾 Final bill:", data.bill);
-
-      setBill(data.bill);
-
-      setSession((currentSession) =>
-        currentSession
-          ? {
-              ...currentSession,
-              status: "bill_requested",
-            }
-          : currentSession
-      );
-
-      localStorage.setItem(
-        "tableSession",
-        JSON.stringify({
-          sessionId: data.bill.sessionId,
-          orderId: data.bill.orderId,
-          tableId: data.bill.tableId,
-          tableNumber: data.bill.tableNumber,
-          orderCount: data.bill.orderCount,
-          status: "bill_requested",
-        })
-      );
-    } catch (error) {
-      console.error("❌ Bill request failed:", error);
-
-      alert(error.message || "Failed to request bill.");
-    } finally {
-      setRequestingBill(false);
-    }
-  };
-
-  // =========================
   // SESSION TOTALS
   // =========================
 
@@ -1027,9 +949,6 @@ function OrderStatus() {
             fontWeight: "700",
           }}
         >
-          🧾 Bill requested successfully.
-          <br />
-          Please wait for the staff.
         </div>
       )}
 
@@ -1625,26 +1544,6 @@ function OrderStatus() {
               : session?.closeTableRequest?.status === "rejected"
               ? "🔄 Request Closure Again"
               : "🔒 Request to Close Table"}
-          </button>
-
-          {/* REQUEST BILL */}
-          <button
-            type="button"
-            onClick={handleRequestBill}
-            disabled={requestingBill}
-            style={{
-              width: "100%",
-              padding: "16px 20px",
-              border: "2px solid #4b2918",
-              borderRadius: "14px",
-              background: requestingBill ? "#f3eee9" : "#ffffff",
-              color: "#4b2918",
-              fontSize: "16px",
-              fontWeight: "700",
-              cursor: requestingBill ? "not-allowed" : "pointer",
-            }}
-          >
-            {requestingBill ? "Requesting Bill..." : "🧾 Request Bill"}
           </button>
         </div>
       )}
