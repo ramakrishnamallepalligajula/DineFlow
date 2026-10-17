@@ -87,6 +87,7 @@ function validateRestaurantInput({
   return null;
 }
 
+
 async function createRestaurantForUser({
   user,
   restaurantName,
@@ -95,9 +96,19 @@ async function createRestaurantForUser({
   gstin,
 }) {
   if (user.restaurantId) {
-    const existingRestaurant = await Restaurant.findById(
-      user.restaurantId
-    );
+    const restaurantId = String(user.restaurantId);
+
+    console.log("[Firebase setup] Existing restaurant lookup:", {
+      userId: String(user._id),
+      restaurantId,
+      database: Restaurant.db?.name,
+      collection: Restaurant.collection?.name,
+      userDatabase: user.db?.name,
+      sameDatabase: user.db?.name === Restaurant.db?.name,
+    });
+
+    const existingRestaurant =
+      await Restaurant.findById(restaurantId);
 
     if (existingRestaurant) {
       return {
@@ -106,11 +117,33 @@ async function createRestaurantForUser({
       };
     }
 
-    // The user points to a restaurant that no longer exists.
-    // Do not silently create a replacement.
-    throw new Error(
-      "Your account references a missing restaurant. Please contact support."
+    // Check whether another restaurant is already owned by this user.
+    const restaurantOwnedByUser = await Restaurant.findOne({
+      owner: user._id,
+    }).select("_id name owner");
+
+    console.error(
+      "[Firebase setup] Restaurant lookup returned null:",
+      {
+        userId: String(user._id),
+        restaurantId,
+        database: Restaurant.db?.name,
+        collection: Restaurant.collection?.name,
+        restaurantOwnedByUser: restaurantOwnedByUser
+          ? {
+              id: String(restaurantOwnedByUser._id),
+              name: restaurantOwnedByUser.name,
+            }
+          : null,
+      }
     );
+
+    const error = new Error(
+      "The existing restaurant could not be found in the connected database. Please contact support."
+    );
+
+    error.statusCode = 409;
+    throw error;
   }
 
   const validationError = validateRestaurantInput({
@@ -127,12 +160,15 @@ async function createRestaurantForUser({
 
   const normalizedEmail = String(
     user.email || contactEmail || ""
-  ).trim().toLowerCase();
+  )
+    .trim()
+    .toLowerCase();
 
   if (!normalizedEmail) {
     const error = new Error(
       "A verified contact email is required to create a restaurant."
     );
+
     error.statusCode = 400;
     throw error;
   }
@@ -145,11 +181,13 @@ async function createRestaurantForUser({
     email: normalizedEmail,
     address: restaurantAddress.trim(),
     owner: user._id,
+
     taxSettings: {
       gstEnabled: Boolean(normalizedGstin),
       gstRate: 5,
       gstin: normalizedGstin,
     },
+
     subscription: {
       plan: null,
       billingPeriod: null,
@@ -165,21 +203,25 @@ async function createRestaurantForUser({
     user.restaurantId = restaurant._id;
     await user.save();
   } catch (error) {
-    // Avoid leaving an orphaned restaurant if linking fails.
-    await Restaurant.deleteOne({ _id: restaurant._id }).catch(
-      (cleanupError) => {
-        console.error(
-          "Restaurant cleanup failed:",
-          cleanupError
-        );
-      }
-    );
+    // Remove the newly created restaurant if linking the user fails.
+    await Restaurant.deleteOne({
+      _id: restaurant._id,
+    }).catch((cleanupError) => {
+      console.error(
+        "Restaurant cleanup failed:",
+        cleanupError
+      );
+    });
 
     throw error;
   }
 
-  return { restaurant, created: true };
+  return {
+    restaurant,
+    created: true,
+  };
 }
+
 
 // =========================================================
 // FIREBASE AUTH — GOOGLE SIGN-IN / PHONE OTP
