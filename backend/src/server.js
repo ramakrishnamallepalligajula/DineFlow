@@ -1,115 +1,58 @@
+
 import dotenv from "dotenv";
-import http from "http";
-import { Server } from "socket.io";
-
-import app, {
-  setupRoutes,
-} from "./app.js";
-
-import connectDB from "./config/db.js";
-
 dotenv.config();
 
+import http from "node:http";
+import { Server } from "socket.io";
+import app, { setupRoutes } from "./app.js";
+import connectDB from "./config/db.js";
+
 const PORT = process.env.PORT || 3000;
+const FRONTEND_URL = process.env.FRONTEND_URL;
 
-// =========================
-// MONGODB
-// =========================
+async function startServer() {
+  try {
+    // Connect to MongoDB before accepting requests.
+    await connectDB();
 
-connectDB();
+    const server = http.createServer(app);
 
-// =========================
-// CREATE HTTP SERVER
-// =========================
+    const io = new Server(server, {
+      cors: {
+        origin: FRONTEND_URL,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+      },
+    });
 
-const server = http.createServer(app);
+    app.set("io", io);
+    setupRoutes(io);
 
-// =========================
-// SOCKET.IO
-// =========================
+    io.on("connection", (socket) => {
+      console.log("Socket connected:", socket.id);
 
-const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL,
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "DELETE",
-    ],
-  },
-});
+      socket.on("join-restaurant", async (restaurantId) => {
+        if (!restaurantId) return;
 
-app.set("io", io);
-setupRoutes(io);
+        // Retain the existing restaurant-room behavior.
+        const roomName = `restaurant:${String(restaurantId)}`;
+        await socket.join(roomName);
 
+        console.log(`${socket.id} joined ${roomName}`);
+      });
 
-// =========================
-// START SERVER
-// =========================
+      socket.on("disconnect", () => {
+        console.log("Socket disconnected:", socket.id);
+      });
+    });
 
-server.listen(PORT, () => {
-  console.log(
-    `Server running on port ${PORT}`
-  );
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      console.log("Socket.IO server is ready");
+    });
+  } catch (error) {
+    console.error("Failed to start DineToFlow:", error);
+    process.exit(1);
+  }
+}
 
-  console.log(
-    "Socket.IO server is ready ⚡"
-  );
-});
-
-// =========================
-// SOCKET CONNECTION
-// =========================
-
-io.on("connection", (socket) => {
-  console.log(
-    "⚡ Socket connected:",
-    socket.id
-  );
-
-  // =========================
-  // JOIN RESTAURANT ROOM
-  // =========================
-
-  socket.on("join-restaurant", async (restaurantId) => {
-    if (!restaurantId) {
-      console.log(
-        "❌ Restaurant ID missing"
-      );
-      return;
-    }
-
-    const roomName =
-      `restaurant:${String(restaurantId)}`;
-
-    await socket.join(roomName);
-
-    console.log(
-      `🏪 Socket ${socket.id} joined ${roomName}`
-    );
-
-    // Check who is actually inside the room
-    const socketsInRoom =
-      await io.in(roomName).fetchSockets();
-
-    console.log(
-      `👥 Sockets currently in ${roomName}:`,
-      socketsInRoom.map(
-        (connectedSocket) =>
-          connectedSocket.id
-      )
-    );
-  });
-
-  // =========================
-  // DISCONNECT
-  // =========================
-
-  socket.on("disconnect", () => {
-    console.log(
-      "🔌 Socket disconnected:",
-      socket.id
-    );
-  });
-});
+startServer();

@@ -334,6 +334,38 @@ if (existingOrder) {
   recoveryTokenHash: hashRecoveryToken(recoveryToken),
 });
 
+
+session.orderCount += 1;
+await session.save();
+
+await Table.findOneAndUpdate(
+  {
+    tableId,
+    restaurantId,
+  },
+  {
+    status: "Occupied",
+  }
+);
+
+io.to(`restaurant:${String(restaurantId)}`).emit(
+  "new-order",
+  order.toObject()
+);
+
+await createKitchenPrintJob({ order, io });
+
+return res.status(201).json({
+  message: "Order received and sent for kitchen processing.",
+  order: order.toObject(),
+  session: {
+    sessionId: session.sessionId,
+    orderId: session.orderId,
+    orderCount: session.orderCount,
+    status: session.status,
+  },
+});
+
     // IMPORTANT:
     // Do not increment session.orderCount.
     // Do not mark the table occupied.
@@ -620,28 +652,19 @@ const GST_RATE = 5;
 const CGST_RATE = 2.5;
 const SGST_RATE = 2.5;
 
-// Menu subtotal BEFORE GST
 const subtotal = Number(Number(totalPrice).toFixed(2));
 
-// Add 5% GST on top of subtotal
-const tax = Number(
-  (subtotal * GST_RATE / 100).toFixed(2)
-);
-
-// Split GST into CGST and SGST
 const cgst = Number(
-  (tax / 2).toFixed(2)
+  (subtotal * CGST_RATE / 100).toFixed(2)
 );
 
 const sgst = Number(
-  (tax - cgst).toFixed(2)
+  (subtotal * SGST_RATE / 100).toFixed(2)
 );
 
-// Final amount customer must pay
-const total = Number(
-  (subtotal + tax).toFixed(2)
-);
+const tax = Number((cgst + sgst).toFixed(2));
 
+const total = Number((subtotal + tax).toFixed(2));
 
 
 // ===================================================
@@ -671,7 +694,7 @@ const bill = await Bill.create({
 
   subtotal,
 
-  taxRate: gstRate,
+  taxRate: GST_RATE,
 
   tax,
 
@@ -774,7 +797,7 @@ console.log("🧾 Bill saved to MongoDB:", bill._id);
 
           subtotal,
 
-          taxRate: gstRate,
+          taxRate: GST_RATE,
 
           tax,
 
@@ -1265,7 +1288,7 @@ router.patch("/:id/payment-method", async (req, res) => {
           return res.status(409).json({
             success: false,
             message:
-              "Payment must be confirmed before the kitchen can accept this order.",
+              " ",
             paymentStatus: existingOrder.paymentStatus || "PENDING",
           });
         }

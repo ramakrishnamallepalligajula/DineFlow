@@ -21,28 +21,111 @@ function Login() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // NEW RESTAURANT SIGNUP: GOOGLE FIRST
-  const handleCreateRestaurantAccount = async () => {
-    setError("");
-    setMessage("");
-    setLoading(true);
+// CREATE RESTAURANT ACCOUNT — GOOGLE FIRST
+const handleCreateRestaurantAccount = async () => {
+  setError("");
+  setMessage("");
+  setLoading(true);
 
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
+  try {
+    // 1. Authenticate through Firebase Google sign-in.
+    const result = await signInWithPopup(auth, googleProvider);
 
+    // 2. Get a Firebase ID token for backend verification.
+    const idToken = await result.user.getIdToken();
+
+    // 3. Use the SAME backend authentication endpoint as Google Login.
+    const response = await fetch(`${API_URL}/api/auth/firebase`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        idToken,
+        name: result.user.displayName || "",
+        contactEmail: result.user.email || "",
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    // 4. New users or existing users without a restaurant
+    // must complete restaurant onboarding.
+    if (response.status === 428 && data.requiresRestaurantSetup) {
       sessionStorage.setItem("dineflowRestaurantSetup", "true");
 
       navigate("/register", {
         replace: true,
-        state: { requiresFirebaseSetup: true },
+        state: {
+          requiresFirebaseSetup: true,
+          firebaseUser: data.firebaseUser || {
+            name: result.user.displayName || "",
+            email: result.user.email || "",
+            phoneNumber: result.user.phoneNumber || null,
+          },
+        },
       });
-    } catch (err) {
-      console.error("Google signup failed:", err);
-      setError(err.message || "Google sign-in failed. Please try again.");
-    } finally {
-      setLoading(false);
+
+      return;
     }
-  };
+
+    // 5. Handle backend authentication errors.
+    if (!response.ok) {
+      throw new Error(
+        data.message || "Unable to authenticate with Google."
+      );
+    }
+
+    // 6. Existing restaurant accounts should sign in normally.
+    if (!data.token || !data.user || !data.restaurant) {
+      throw new Error(
+        "The server returned incomplete account information."
+      );
+    }
+
+    if (data.user.role !== "admin") {
+      throw new Error(
+        "This account cannot use admin Google login. Please use Staff Login."
+      );
+    }
+
+    // 7. Save the authenticated session using the existing AuthContext.
+    login(data.token, data.user, data.restaurant);
+
+    sessionStorage.removeItem("dineflowRestaurantSetup");
+
+    // 8. Refresh restaurant information if available.
+    let restaurant = data.restaurant;
+
+    try {
+      const refreshed = await refreshUser();
+
+      if (refreshed?.restaurant) {
+        restaurant = refreshed.restaurant;
+      }
+    } catch (refreshError) {
+      console.error("Session refresh failed:", refreshError);
+    }
+
+    // 9. Route existing owners according to subscription status.
+    const status = restaurant?.subscription?.status;
+
+    navigate(
+      status === "TRIALING" || status === "ACTIVE"
+        ? "/admin"
+        : "/subscription",
+      { replace: true }
+    );
+  } catch (err) {
+    console.error("Google restaurant signup failed:", err);
+
+    setError(
+      err.message || "Google sign-in failed. Please try again."
+    );
+  } finally {
+    setLoading(false);
+  }
+};
 
   // EXISTING ADMIN GOOGLE LOGIN
   const handleGoogleLogin = async () => {
