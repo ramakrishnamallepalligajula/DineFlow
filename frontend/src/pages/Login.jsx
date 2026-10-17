@@ -1,15 +1,14 @@
-
 import { useState } from "react";
 import { signInWithPopup } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
 import { auth, googleProvider } from "../firebase";
 import { useAuth } from "../context/AuthContext";
-
 import "./Login.css";
 
-const API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:3000"
+).replace(/\/+$/, "");
 
 function Login() {
   const navigate = useNavigate();
@@ -18,71 +17,69 @@ function Login() {
   const [loginMode, setLoginMode] = useState("admin");
   const [staffEmail, setStaffEmail] = useState("");
   const [staffPassword, setStaffPassword] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  // ==========================================
-  // ADMIN GOOGLE LOGIN
-  // ==========================================
+  // NEW RESTAURANT SIGNUP: GOOGLE FIRST
+  const handleCreateRestaurantAccount = async () => {
+    setError("");
+    setMessage("");
+    setLoading(true);
 
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+
+      sessionStorage.setItem("dineflowRestaurantSetup", "true");
+
+      navigate("/register", {
+        replace: true,
+        state: { requiresFirebaseSetup: true },
+      });
+    } catch (err) {
+      console.error("Google signup failed:", err);
+      setError(err.message || "Google sign-in failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // EXISTING ADMIN GOOGLE LOGIN
   const handleGoogleLogin = async () => {
     setError("");
     setMessage("");
     setLoading(true);
 
     try {
-      const result = await signInWithPopup(
-        auth,
-        googleProvider
-      );
-
+      const result = await signInWithPopup(auth, googleProvider);
       const idToken = await result.user.getIdToken();
 
-      const response = await fetch(
-        `${API_URL}/api/auth/firebase`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ idToken }),
-        }
-      );
+      const response = await fetch(`${API_URL}/api/auth/firebase`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken }),
+      });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
-      if (
-        response.status === 428 &&
-        data.requiresRestaurantSetup
-      ) {
+      if (response.status === 428 && data.requiresRestaurantSetup) {
+        sessionStorage.setItem("dineflowRestaurantSetup", "true");
+
         navigate("/register", {
           replace: true,
-          state: {
-            requiresFirebaseSetup: true,
-          },
+          state: { requiresFirebaseSetup: true },
         });
         return;
       }
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Google authentication failed."
-        );
+        throw new Error(data.message || "Google authentication failed.");
       }
 
-      if (
-        !data.token ||
-        !data.user ||
-        !data.restaurant
-      ) {
-        throw new Error(
-          "The server returned incomplete account information."
-        );
+      if (!data.token || !data.user || !data.restaurant) {
+        throw new Error("The server returned incomplete account information.");
       }
 
-      // Google login is reserved for restaurant admins.
       if (data.user.role !== "admin") {
         throw new Error(
           "This account cannot use admin Google login. Please use Staff Login."
@@ -95,78 +92,55 @@ function Login() {
 
       try {
         const refreshed = await refreshUser();
-
-        if (refreshed?.restaurant) {
-          restaurant = refreshed.restaurant;
-        }
+        if (refreshed?.restaurant) restaurant = refreshed.restaurant;
       } catch (refreshError) {
-        console.error(
-          "Session refresh failed:",
-          refreshError
-        );
+        console.error("Session refresh failed:", refreshError);
       }
 
-      const subscriptionStatus =
-        restaurant?.subscription?.status;
+      const status = restaurant?.subscription?.status;
 
       navigate(
-        subscriptionStatus === "TRIALING" ||
-          subscriptionStatus === "ACTIVE"
+        status === "TRIALING" || status === "ACTIVE"
           ? "/admin"
           : "/subscription",
         { replace: true }
       );
     } catch (err) {
       console.error("Google sign-in failed:", err);
-
-      setError(
-        err.message || "Google sign-in failed."
-      );
+      setError(err.message || "Google sign-in failed.");
     } finally {
       setLoading(false);
     }
   };
 
-  // ==========================================
-  // STAFF EMAIL AND PASSWORD LOGIN
-  // ==========================================
-
+  // STAFF LOGIN
   const handleStaffLogin = async (event) => {
     event.preventDefault();
-
     setError("");
     setMessage("");
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/auth/login`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: staffEmail.trim().toLowerCase(),
-            password: staffPassword,
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: staffEmail.trim().toLowerCase(),
+          password: staffPassword,
+        }),
+      });
 
       const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          `Staff login endpoint returned HTTP ${response.status}. Check your backend route registration.`
+        );
+      }
 
-if (!contentType.includes("application/json")) {
-  throw new Error(
-    `Staff login endpoint returned HTTP ${response.status}. Check your backend route registration.`
-  );
-}
-
-const data = await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.message || "Staff login failed."
-        );
+        throw new Error(data.message || "Staff login failed.");
       }
 
       if (
@@ -175,9 +149,7 @@ const data = await response.json();
         !data.restaurant ||
         data.user.role !== "staff"
       ) {
-        throw new Error(
-          "Invalid staff account response."
-        );
+        throw new Error("Invalid staff account response.");
       }
 
       login(data.token, data.user, data.restaurant);
@@ -185,38 +157,21 @@ const data = await response.json();
       try {
         const refreshed = await refreshUser();
 
-        if (
-          refreshed?.user &&
-          refreshed.user.role !== "staff"
-        ) {
-          throw new Error(
-            "This account is not authorized for staff access."
-          );
+        if (refreshed?.user && refreshed.user.role !== "staff") {
+          throw new Error("This account is not authorized for staff access.");
         }
       } catch (refreshError) {
-        console.error(
-          "Staff session refresh failed:",
-          refreshError
-        );
+        console.error("Staff session refresh failed:", refreshError);
       }
 
-      navigate("/kitchen", {
-        replace: true,
-      });
+      navigate("/kitchen", { replace: true });
     } catch (err) {
       console.error("Staff login failed:", err);
-
-      setError(
-        err.message || "Unable to sign in. Please try again."
-      );
+      setError(err.message || "Unable to sign in. Please try again.");
     } finally {
       setLoading(false);
     }
   };
-
-  // ==========================================
-  // LOGIN PAGE
-  // ==========================================
 
   const changeLoginMode = (mode) => {
     setLoginMode(mode);
@@ -226,17 +181,12 @@ const data = await response.json();
 
   return (
     <div className="login-page">
-      {/* LEFT PANEL */}
       <div className="login-left">
         <div className="login-overlay" />
 
         <div className="login-left-content">
-          <div
-            className="brand"
-            onClick={() => navigate("/")}
-          >
+          <div className="brand" onClick={() => navigate("/")}>
             <div className="brand-icon">🍽️</div>
-
             <div>
               <h1>DineFlow</h1>
               <p>Restaurant Management System</p>
@@ -247,10 +197,8 @@ const data = await response.json();
             <h2>
               Manage Your <span>Restaurant</span> with Ease
             </h2>
-
             <p className="hero-description">
-              Manage orders, menus, tables and more —
-              all in one place.
+              Manage orders, menus, tables and more — all in one place.
             </p>
           </div>
 
@@ -282,19 +230,15 @@ const data = await response.json();
         </div>
       </div>
 
-      {/* RIGHT PANEL */}
       <div className="login-right">
         <div className="login-card">
           <div className="login-logo">🍽️</div>
 
           <div className="login-heading">
             <h2>Welcome to DineFlow</h2>
-            <p>
-              Sign in to your restaurant workspace
-            </p>
+            <p>Sign in to your restaurant workspace</p>
           </div>
 
-          {/* LOGIN MODE SELECTOR */}
           <div
             className="login-mode-switch"
             role="group"
@@ -302,9 +246,7 @@ const data = await response.json();
           >
             <button
               type="button"
-              className={
-                loginMode === "admin" ? "active" : ""
-              }
+              className={loginMode === "admin" ? "active" : ""}
               aria-pressed={loginMode === "admin"}
               onClick={() => changeLoginMode("admin")}
               disabled={loading}
@@ -314,9 +256,7 @@ const data = await response.json();
 
             <button
               type="button"
-              className={
-                loginMode === "staff" ? "active" : ""
-              }
+              className={loginMode === "staff" ? "active" : ""}
               aria-pressed={loginMode === "staff"}
               onClick={() => changeLoginMode("staff")}
               disabled={loading}
@@ -326,16 +266,11 @@ const data = await response.json();
           </div>
 
           {error && (
-            <p className="login-error" role="alert">
-              {error}
-            </p>
+            <p className="login-error" role="alert">{error}</p>
           )}
 
-          {message && (
-            <p role="status">{message}</p>
-          )}
+          {message && <p role="status">{message}</p>}
 
-          {/* ADMIN LOGIN */}
           {loginMode === "admin" && (
             <>
               <button
@@ -344,50 +279,39 @@ const data = await response.json();
                 onClick={handleGoogleLogin}
                 disabled={loading}
               >
-                {loading
-                  ? "Please wait..."
-                  : "Continue with Google"}
+                {loading ? "Please wait..." : "Continue with Google"}
               </button>
 
               <div className="register-link">
                 <p>New to DineFlow?</p>
-
                 <button
                   className="Create-account"
                   type="button"
-                  onClick={() => navigate("/register")}
+                  onClick={handleCreateRestaurantAccount}
                   disabled={loading}
                 >
-                  Create Restaurant Account
+                  {loading
+                    ? "Connecting to Google..."
+                    : "Create Restaurant Account"}
                 </button>
               </div>
             </>
           )}
 
-          {/* STAFF LOGIN */}
           {loginMode === "staff" && (
             <>
               <p className="staff-login-description">
-                Sign in using the credentials provided
-                by your restaurant admin.
+                Sign in using the credentials provided by your restaurant admin.
               </p>
 
-              <form
-                className="login-form"
-                onSubmit={handleStaffLogin}
-              >
+              <form className="login-form" onSubmit={handleStaffLogin}>
                 <div className="login-field">
-                  <label htmlFor="staff-email">
-                    Email address
-                  </label>
-
+                  <label htmlFor="staff-email">Email address</label>
                   <input
                     id="staff-email"
                     type="email"
                     value={staffEmail}
-                    onChange={(event) =>
-                      setStaffEmail(event.target.value)
-                    }
+                    onChange={(event) => setStaffEmail(event.target.value)}
                     placeholder="staff@restaurant.com"
                     autoComplete="username"
                     required
@@ -396,17 +320,12 @@ const data = await response.json();
                 </div>
 
                 <div className="login-field">
-                  <label htmlFor="staff-password">
-                    Password
-                  </label>
-
+                  <label htmlFor="staff-password">Password</label>
                   <input
                     id="staff-password"
                     type="password"
                     value={staffPassword}
-                    onChange={(event) =>
-                      setStaffPassword(event.target.value)
-                    }
+                    onChange={(event) => setStaffPassword(event.target.value)}
                     placeholder="Enter your password"
                     autoComplete="current-password"
                     required
@@ -419,9 +338,7 @@ const data = await response.json();
                   className="login-submit"
                   disabled={loading}
                 >
-                  {loading
-                    ? "Signing in..."
-                    : "Staff Sign In"}
+                  {loading ? "Signing in..." : "Staff Sign In"}
                 </button>
               </form>
 
