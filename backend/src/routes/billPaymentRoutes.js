@@ -7,6 +7,11 @@ import mongoose from "mongoose";
 import Bill from "../models/Bill.js";
 import BillPayment from "../models/BillPayments.js";
 import TableSession from "../models/TableSession.js";
+import Order from "../models/Order.js";
+import Table from "../models/Table.js";
+import Restaurant from "../models/Restaurant.js";
+import authMiddleware from "../middleware/authMiddleware.js";
+import requireRole from "../middleware/roleMiddleware.js";
 
 const router = express.Router();
 
@@ -89,7 +94,14 @@ router.post("/cash", async (req, res) => {
       });
     }
 
-    const { bill } = result;
+    const { session, bill } = result;
+
+    if (session.status === "closed") {
+      return res.status(409).json({
+        success: false,
+        message: "This table session is already closed.",
+      });
+    }
 
     if (bill.paymentStatus === "PAID") {
       return res.status(409).json({
@@ -156,12 +168,30 @@ router.post("/create-order", async (req, res) => {
       });
     }
 
-    const { bill } = result;
+    const { session, bill } = result;
 
-    if (bill.paymentStatus === "PAID") {
+    if (session.status === "closed" || bill.paymentStatus === "PAID") {
       return res.status(409).json({
         success: false,
-        message: "This bill has already been paid.",
+        message: "This bill is already closed or paid.",
+      });
+    }
+
+    const restaurant = await Restaurant.findById(bill.restaurantId)
+      .select("paymentSettings")
+      .lean();
+    const paymentSettings = restaurant?.paymentSettings;
+
+    if (
+      !paymentSettings?.onlinePaymentsEnabled ||
+      paymentSettings.onboardingStatus !== "ACTIVE" ||
+      paymentSettings.provider !== "RAZORPAY" ||
+      !paymentSettings.razorpayAccountId
+    ) {
+      return res.status(403).json({
+        success: false,
+        code: "ONLINE_PAYMENTS_NOT_ENABLED",
+        message: "Online payments are not enabled for this restaurant.",
       });
     }
 
@@ -412,67 +442,164 @@ router.post("/verify", async (req, res) => {
       });
     }
 
-    // Atomically claim an unpaid bill to reduce double confirmation.
+    // Keep bill, orders, session, table, and provider payment in sync.
+    // Razorpay is verified before opening the database transaction.
     const now = new Date();
+    const mongoSession = await mongoose.startSession();
+    let updatedBill = null;
+    let alreadyPaid = false;
 
-    const updatedBill = await Bill.findOneAndUpdate(
-      {
-        _id: bill._id,
-        restaurantId: bill.restaurantId,
-        sessionId: bill.sessionId,
-        paymentStatus: { $ne: "PAID" },
-      },
-      {
-        $set: {
-          paymentStatus: "PAID",
-          paymentMethod: "ONLINE",
-          paymentReference: razorpay_payment_id,
-          paidAt: now,
-          status: "PAID",
-        },
-      },
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    try {
+      await mongoSession.withTransaction(async () => {
+        const currentBill = await Bill.findOne({
+          _id: bill._id,
+          restaurantId: bill.restaurantId,
+          sessionId: bill.sessionId,
+        }).session(mongoSession);
 
-    if (!updatedBill) {
-      const latestBill = await Bill.findById(bill._id);
+        if (!currentBill) {
+          const error = new Error("Bill not found.");
+          error.statusCode = 404;
+          throw error;
+        }
 
-      if (
-        latestBill?.paymentStatus === "PAID" &&
-        latestBill.paymentReference === razorpay_payment_id
-      ) {
-        billPayment.paymentId = razorpay_payment_id;
-        billPayment.signature = razorpay_signature;
-        billPayment.status = "paid";
-        billPayment.paidAt = latestBill.paidAt || now;
-        await billPayment.save();
+        if (currentBill.paymentStatus === "PAID") {
+          if (currentBill.paymentReference === razorpay_payment_id) {
+            alreadyPaid = true;
+            updatedBill = currentBill;
+            await BillPayment.updateOne(
+              { _id: billPayment._id },
+              {
+                $set: {
+                  paymentId: razorpay_payment_id,
+                  signature: razorpay_signature,
+                  status: "paid",
+                  paidAt: currentBill.paidAt || now,
+                },
+              },
+              { session: mongoSession }
+            );
 
-        return res.status(200).json({
-          success: true,
-          message: "Payment was already verified.",
-          bill: latestBill,
-        });
-      }
+            // Reconcile legacy/partially completed records on safe retries.
+            await Order.updateMany(
+              {
+                restaurantId: bill.restaurantId,
+                sessionId: bill.sessionId,
+              },
+              {
+                $set: {
+                  paymentStatus: "PAID",
+                  paymentMethod: "ONLINE",
+                  razorpayPaymentId: razorpay_payment_id,
+                  paidAt: currentBill.paidAt || now,
+                },
+              },
+              { session: mongoSession }
+            );
 
-      return res.status(409).json({
-        success: false,
-        message:
-          "Bill has already been paid or changed. Please refresh the bill.",
+            const reconciledSession = await TableSession.findOneAndUpdate(
+              {
+                sessionId: bill.sessionId,
+                restaurantId: bill.restaurantId,
+                billId: bill._id,
+                status: { $in: ["open", "bill_requested", "closed"] },
+              },
+              { $set: { status: "closed" } },
+              { new: true, session: mongoSession }
+            );
+
+            if (reconciledSession) {
+              await Table.updateOne(
+                {
+                  restaurantId: bill.restaurantId,
+                  tableId: reconciledSession.tableId,
+                },
+                { $set: { status: "Available" } },
+                { session: mongoSession }
+              );
+            }
+            return;
+          }
+
+          const error = new Error("This bill has already been paid with another payment.");
+          error.statusCode = 409;
+          throw error;
+        }
+
+        currentBill.paymentStatus = "PAID";
+        currentBill.paymentMethod = "ONLINE";
+        currentBill.paymentReference = razorpay_payment_id;
+        currentBill.paidAt = now;
+        currentBill.status = "PAID";
+        await currentBill.save({ session: mongoSession });
+
+        await Order.updateMany(
+          {
+            restaurantId: bill.restaurantId,
+            sessionId: bill.sessionId,
+          },
+          {
+            $set: {
+              paymentStatus: "PAID",
+              paymentMethod: "ONLINE",
+              razorpayPaymentId: razorpay_payment_id,
+              paidAt: now,
+            },
+          },
+          { session: mongoSession }
+        );
+
+        const closedSession = await TableSession.findOneAndUpdate(
+          {
+            sessionId: bill.sessionId,
+            restaurantId: bill.restaurantId,
+            billId: bill._id,
+            status: { $in: ["bill_requested", "closed"] },
+          },
+          { $set: { status: "closed" } },
+          { new: true, session: mongoSession }
+        );
+
+        if (!closedSession) {
+          const error = new Error("Table session could not be closed after payment.");
+          error.statusCode = 409;
+          throw error;
+        }
+
+        await Table.updateOne(
+          {
+            restaurantId: bill.restaurantId,
+            tableId: closedSession.tableId,
+          },
+          { $set: { status: "Available" } },
+          { session: mongoSession }
+        );
+
+        await BillPayment.updateOne(
+          { _id: billPayment._id },
+          {
+            $set: {
+              paymentId: razorpay_payment_id,
+              signature: razorpay_signature,
+              status: "paid",
+              paidAt: now,
+            },
+          },
+          { session: mongoSession }
+        );
+
+        updatedBill = currentBill;
       });
+    } finally {
+      await mongoSession.endSession();
     }
-
-    billPayment.paymentId = razorpay_payment_id;
-    billPayment.signature = razorpay_signature;
-    billPayment.status = "paid";
-    billPayment.paidAt = now;
-    await billPayment.save();
 
     return res.status(200).json({
       success: true,
-      message: "Payment verified successfully.",
+      alreadyPaid,
+      message: alreadyPaid
+        ? "Payment was already verified."
+        : "Payment verified successfully.",
       bill: updatedBill,
       printJobId: null,
     });
@@ -482,13 +609,144 @@ router.post("/verify", async (req, res) => {
       error
     );
 
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message:
-        "Payment verification failed. Refresh the bill status before retrying.",
+      message: error.statusCode
+        ? error.message
+        : "Payment verification failed. Refresh the bill status before retrying.",
     });
   }
 });
+
+// STAFF: confirm that the cash for the entire bill was physically collected.
+// POST /api/bill-payments/:billId/confirm-cash
+router.post(
+  "/:billId/confirm-cash",
+  authMiddleware,
+  requireRole("admin", "staff"),
+  async (req, res) => {
+    const mongoSession = await mongoose.startSession();
+    let paidBill = null;
+    let alreadyPaid = false;
+
+    try {
+      if (!req.user?.restaurantId || !req.user?.userId) {
+        return res.status(403).json({
+          success: false,
+          message: "Your account is not linked to a restaurant.",
+        });
+      }
+
+      if (!mongoose.isValidObjectId(req.params.billId)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid bill ID.",
+        });
+      }
+
+      await mongoSession.withTransaction(async () => {
+        const bill = await Bill.findOne({
+          _id: req.params.billId,
+          restaurantId: req.user.restaurantId,
+        }).session(mongoSession);
+
+        if (!bill) {
+          const error = new Error("Bill not found.");
+          error.statusCode = 404;
+          throw error;
+        }
+
+        if (bill.paymentStatus === "PAID") {
+          if (bill.paymentMethod === "CASH") {
+            alreadyPaid = true;
+            paidBill = bill;
+            return;
+          }
+          const error = new Error("This bill was already paid using another method.");
+          error.statusCode = 409;
+          throw error;
+        }
+
+        if (bill.paymentMethod !== "CASH") {
+          const error = new Error("The customer has not selected cash payment for this bill.");
+          error.statusCode = 409;
+          throw error;
+        }
+
+        const tableSession = await TableSession.findOne({
+          sessionId: bill.sessionId,
+          restaurantId: bill.restaurantId,
+          billId: bill._id,
+          status: "bill_requested",
+        }).session(mongoSession);
+
+        if (!tableSession) {
+          const error = new Error("The table session is not awaiting payment.");
+          error.statusCode = 409;
+          throw error;
+        }
+
+        const now = new Date();
+        bill.paymentStatus = "PAID";
+        bill.paymentMethod = "CASH";
+        bill.paymentReference = `CASH-${bill._id}-${now.getTime()}`;
+        bill.paidAt = now;
+        bill.status = "PAID";
+        await bill.save({ session: mongoSession });
+
+        await Order.updateMany(
+          {
+            restaurantId: bill.restaurantId,
+            sessionId: bill.sessionId,
+          },
+          {
+            $set: {
+              paymentStatus: "PAID",
+              paymentMethod: "CASH",
+              paidAt: now,
+              cashCollectedBy: req.user.userId,
+              cashCollectedAt: now,
+            },
+          },
+          { session: mongoSession }
+        );
+
+        tableSession.status = "closed";
+        await tableSession.save({ session: mongoSession });
+
+        await Table.updateOne(
+          {
+            restaurantId: bill.restaurantId,
+            tableId: tableSession.tableId,
+          },
+          { $set: { status: "Available" } },
+          { session: mongoSession }
+        );
+
+        paidBill = bill;
+      });
+
+      return res.status(200).json({
+        success: true,
+        alreadyPaid,
+        message: alreadyPaid
+          ? "Cash payment has already been confirmed."
+          : "Cash collection confirmed and table session closed.",
+        bill: paidBill,
+      });
+    } catch (error) {
+      console.error("Bill cash confirmation failed:", error);
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.statusCode
+          ? error.message
+          : "Unable to confirm cash collection.",
+      });
+    } finally {
+      await mongoSession.endSession();
+    }
+  }
+);
 
 // CUSTOMER: recover an existing bill after page refresh.
 // GET /api/bill-payments/session/:sessionId/bill

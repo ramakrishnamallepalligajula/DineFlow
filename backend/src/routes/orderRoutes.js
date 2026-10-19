@@ -182,12 +182,6 @@ if (existingOrder) {
   });
 }
 
-    if (existingOrder) {
-      return res.status(200).json({
-        message: "This order request was already received.",
-        order: existingOrder,
-      });
-    }
 
     // 6. Validate item IDs and quantities.
     const requestedItems = items.map((item) => ({
@@ -288,8 +282,15 @@ if (existingOrder) {
     let session = await TableSession.findOne({
       restaurantId,
       tableId,
-      status: "open",
+      status: { $in: ["open", "bill_requested"] },
     }).sort({ createdAt: -1 });
+
+    if (session?.status === "bill_requested") {
+      return res.status(409).json({
+        message: "The bill has already been requested for this table.",
+        code: "BILL_ALREADY_REQUESTED",
+      });
+    }
 
     if (!session) {
       session = await TableSession.create({
@@ -306,7 +307,7 @@ if (existingOrder) {
     if (session.status !== "open") {
       return res.status(409).json({
         message:
-          "This table session is closed or its bill has already been requested.",
+          "This table is not available for ordering.",
       });
     }
 
@@ -366,39 +367,33 @@ return res.status(201).json({
   },
 });
 
-    // IMPORTANT:
-    // Do not increment session.orderCount.
-    // Do not mark the table occupied.
-    // Do not emit "new-order".
-    // Do not print a kitchen ticket.
-    //
-    // Those actions belong in the payment-confirmation flow.
-
-    return res.status(201).json({
-      message: "Order created. Payment confirmation is required.",
-      order: order.toObject(),
-      session: {
-        sessionId: session.sessionId,
-        orderId: session.orderId,
-        orderCount: session.orderCount,
-        status: session.status,
-      },
-    });
   } catch (error) {
     console.error("Order creation failed:", error);
 
     // A concurrent retry may hit the unique index.
     if (error.code === 11000) {
       try {
-        const existingOrder = await Order.findOne({
-          restaurantId: req.body?.restaurantId,
-          idempotencyKey: req.body?.idempotencyKey,
-        });
+        const duplicateTable = await Table.findOne({
+          tableId: req.body?.tableId,
+        }).select("restaurantId");
+        const recoveryToken = req.get("X-Order-Recovery-Token");
+        const existingOrder = duplicateTable?.restaurantId
+          ? await Order.findOne({
+              restaurantId: duplicateTable.restaurantId,
+              idempotencyKey: req.body?.idempotencyKey,
+            }).select("+recoveryTokenHash")
+          : null;
 
-        if (existingOrder) {
+        if (
+          existingOrder &&
+          isValidRecoveryToken(recoveryToken) &&
+          existingOrder.recoveryTokenHash === hashRecoveryToken(recoveryToken)
+        ) {
+          const safeOrder = existingOrder.toObject();
+          delete safeOrder.recoveryTokenHash;
           return res.status(200).json({
             message: "This order request was already received.",
-            order: existingOrder,
+            order: safeOrder,
           });
         }
       } catch (lookupError) {
@@ -472,19 +467,35 @@ return res.status(201).json({
     "/session/:sessionId",
     async (req, res) => {
       try {
-        const {
-          sessionId,
-        } = req.params;
+        const { sessionId } = req.params;
+        const recoveryToken = req.get("X-Order-Recovery-Token");
 
-        const session =
-          await TableSession.findOne({
-            sessionId,
+        if (!isValidRecoveryToken(recoveryToken)) {
+          return res.status(401).json({
+            message: "Valid order recovery token required.",
           });
+        }
+
+        const session = await TableSession.findOne({ sessionId });
 
         if (!session) {
           return res.status(404).json({
-            message:
-              "Table session not found",
+            message: "Table session not found",
+          });
+        }
+
+        // A session ID is not an authorization credential by itself.
+        // Require proof of possession of a recovery token belonging to an
+        // order in this session before returning session-wide order data.
+        const authorizedOrder = await Order.findOne({
+          restaurantId: session.restaurantId,
+          sessionId: session.sessionId,
+          recoveryTokenHash: hashRecoveryToken(recoveryToken),
+        }).select("_id");
+
+        if (!authorizedOrder) {
+          return res.status(403).json({
+            message: "This recovery token cannot access the table session.",
           });
         }
 
@@ -528,7 +539,7 @@ return res.status(201).json({
   // 3. Combines all items
   // 4. Calculates final totals
   // 5. Changes session to bill_requested
-  // 6. Makes table available
+  // 6. Keeps table occupied until payment and session closure
   // 7. Sends bill-requested to admin devices
   // =========================================================
 
@@ -536,36 +547,82 @@ return res.status(201).json({
     "/session/:sessionId/bill",
     async (req, res) => {
       try {
-        const {
-          sessionId,
-        } = req.params;
+        const { sessionId } = req.params;
+        const recoveryToken = req.get("X-Order-Recovery-Token");
 
-        // ===================================================
-        // FIND SESSION
-        // ===================================================
-
-        const session =
-          await TableSession.findOne({
-            sessionId,
-          });
-
-        if (!session) {
-          return res.status(404).json({
-            message:
-              "Table session not found",
+        if (!isValidRecoveryToken(recoveryToken)) {
+          return res.status(401).json({
+            message: "Valid order recovery token required.",
           });
         }
 
-        // ===================================================
-        // PREVENT DUPLICATE BILL REQUEST
-        // ===================================================
+        const session = await TableSession.findOne({ sessionId });
 
-        if (
-          session.status !== "open"
-        ) {
-          return res.status(400).json({
-            message:
-              "Bill has already been requested for this table session.",
+        if (!session) {
+          return res.status(404).json({
+            message: "Table session not found",
+          });
+        }
+
+        const authorizedOrder = await Order.findOne({
+          restaurantId: session.restaurantId,
+          sessionId: session.sessionId,
+          recoveryTokenHash: hashRecoveryToken(recoveryToken),
+        }).select("_id");
+
+        if (!authorizedOrder) {
+          return res.status(403).json({
+            message: "This recovery token cannot request the bill for this session.",
+          });
+        }
+
+        // Repeated Request Bill calls are idempotent: return the existing bill
+        // instead of creating a second bill or treating a network retry as an error.
+        if (session.status === "bill_requested" && session.billId) {
+          const existingBill = await Bill.findOne({
+            _id: session.billId,
+            restaurantId: session.restaurantId,
+            sessionId: session.sessionId,
+          });
+
+          const existingOrders = await Order.find({
+            restaurantId: session.restaurantId,
+            sessionId: session.sessionId,
+          }).sort({ orderSequence: 1, createdAt: 1 });
+
+          if (!existingBill) {
+            return res.status(409).json({
+              message: "This session has requested a bill, but its bill record is missing. Contact staff.",
+              code: "BILL_RECORD_MISSING",
+            });
+          }
+
+          const existingBillData = {
+            ...existingBill.toObject(),
+            orders: existingOrders.map((order) => ({
+              _id: order._id,
+              orderId: order.orderId,
+              orderSequence: order.orderSequence,
+              type: order.type,
+              items: order.items,
+              totalItems: order.totalItems,
+              totalPrice: order.totalPrice,
+              status: order.status,
+              createdAt: order.createdAt,
+            })),
+            totalPrice: existingBill.total,
+            status: "bill_requested",
+          };
+
+          return res.json({
+            message: "Bill was already requested for this session.",
+            bill: existingBillData,
+          });
+        }
+
+        if (session.status !== "open") {
+          return res.status(409).json({
+            message: "This table session is closed and cannot request a bill.",
           });
         }
 
@@ -722,22 +779,8 @@ console.log("🧾 Bill saved to MongoDB:", bill._id);
 
         await session.save();
 
-        // ===================================================
-        // MAKE TABLE AVAILABLE
-        // ===================================================
-
-        await Table.findOneAndUpdate(
-          {
-            tableId:
-              session.tableId,
-
-            restaurantId:
-              session.restaurantId,
-          },
-          {
-            status: "Available",
-          }
-        );
+        // Keep the table occupied until payment is confirmed and the
+        // session is explicitly closed. Requesting a bill is not payment.
 
         // ===================================================
         // FINAL BILL DATA
@@ -895,7 +938,7 @@ router.get("/recover/:tableId", async (req, res) => {
     const session = await TableSession.findOne({
       restaurantId: table.restaurantId,
       tableId,
-      status: "open",
+      status: { $in: ["open", "bill_requested"] },
     }).sort({ createdAt: -1 });
 
     if (!session) {
@@ -1033,38 +1076,9 @@ router.get("/recover/:tableId", async (req, res) => {
             throw error;
           }
 
-          // Increment the session count only after payment confirmation.
-          const tableSession = await TableSession.findOneAndUpdate(
-            {
-              restaurantId: req.user.restaurantId,
-              sessionId: paidOrder.sessionId,
-              status: "open",
-            },
-            {
-              $inc: { orderCount: 1 },
-            },
-            {
-              new: true,
-              session: mongoSession,
-            }
-          );
-
-          if (!tableSession) {
-            const error = new Error(
-              "The table session is no longer open. Payment was not confirmed."
-            );
-            error.statusCode = 409;
-            throw error;
-          }
-
-          // Assign the confirmed sequence, not the provisional sequence
-          // allocated when the unpaid order was created.
-          paidOrder.orderSequence = tableSession.orderCount;
-          paidOrder.type =
-            tableSession.orderCount === 1 ? "initial" : "additional";
-
-          await paidOrder.save({ session: mongoSession });
-
+          // Order count and sequence are assigned when the order is created.
+          // Cash confirmation only updates payment; it must not increment the
+          // count or re-dispatch the already-sent kitchen order.
           await Table.findOneAndUpdate(
             {
               tableId: paidOrder.tableId,
@@ -1088,12 +1102,9 @@ router.get("/recover/:tableId", async (req, res) => {
           });
         }
 
-        // Notify the kitchen only after the database transaction commits.
+        // The kitchen received this order at creation time. Emit only the
+        // payment update here to avoid duplicate kitchen tickets.
         const orderData = confirmedOrder.toObject();
-
-        io.to(
-          `restaurant:${String(confirmedOrder.restaurantId)}`
-        ).emit("new-order", orderData);
 
         io.to(
           `restaurant:${String(confirmedOrder.restaurantId)}`
@@ -1281,17 +1292,8 @@ router.patch("/:id/payment-method", async (req, res) => {
           });
         }
 
-        if (
-          req.body.status === "Accepted" &&
-          existingOrder.paymentStatus !== "PAID"
-        ) {
-          return res.status(409).json({
-            success: false,
-            message:
-              " ",
-            paymentStatus: existingOrder.paymentStatus || "PENDING",
-          });
-        }
+        // Kitchen status transitions are independent of payment. Orders are
+        // dispatched immediately and may remain paymentStatus=PENDING.
 
         const order = await Order.findOneAndUpdate(
           {
@@ -1317,16 +1319,11 @@ router.patch("/:id/payment-method", async (req, res) => {
 
         // ===================================================
         // IMPORTANT:
-        //
         // Do NOT make the table Available when one
         // individual order becomes Served.
-        //
         // The table belongs to the entire session.
-        //
         // It becomes Available only after:
-        //
         // Customer → Request Bill
-        //
         // ===================================================
 
         // ===================================================
