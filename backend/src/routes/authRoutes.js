@@ -7,7 +7,6 @@ import User from "../models/User.js";
 import Restaurant from "../models/Restaurant.js";
 import authMiddleware from "../middleware/authMiddleware.js";
 import requireRole from "../middleware/roleMiddleware.js";
-import { firebaseAuth } from "../config/firebaseAdmin.js";
 
 const router = express.Router();
 
@@ -87,423 +86,7 @@ function validateRestaurantInput({
   return null;
 }
 
-
-async function createRestaurantForUser({
-  user,
-  restaurantName,
-  restaurantAddress,
-  contactEmail,
-  gstin,
-}) {
-  if (user.restaurantId) {
-    const restaurantId = String(user.restaurantId);
-
-    console.log("[Firebase setup] Existing restaurant lookup:", {
-      userId: String(user._id),
-      restaurantId,
-      database: Restaurant.db?.name,
-      collection: Restaurant.collection?.name,
-      userDatabase: user.db?.name,
-      sameDatabase: user.db?.name === Restaurant.db?.name,
-    });
-
-    const existingRestaurant =
-      await Restaurant.findById(restaurantId);
-
-    if (existingRestaurant) {
-      return {
-        restaurant: existingRestaurant,
-        created: false,
-      };
-    }
-
-    // Check whether another restaurant is already owned by this user.
-    const restaurantOwnedByUser = await Restaurant.findOne({
-      owner: user._id,
-    }).select("_id name owner");
-
-    console.error(
-      "[Firebase setup] Restaurant lookup returned null:",
-      {
-        userId: String(user._id),
-        restaurantId,
-        database: Restaurant.db?.name,
-        collection: Restaurant.collection?.name,
-        restaurantOwnedByUser: restaurantOwnedByUser
-          ? {
-              id: String(restaurantOwnedByUser._id),
-              name: restaurantOwnedByUser.name,
-            }
-          : null,
-      }
-    );
-
-    const error = new Error(
-      "The existing restaurant could not be found in the connected database. Please contact support."
-    );
-
-    error.statusCode = 409;
-    throw error;
-  }
-
-  const validationError = validateRestaurantInput({
-    restaurantName,
-    restaurantAddress,
-    gstin,
-  });
-
-  if (validationError) {
-    const error = new Error(validationError);
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const normalizedEmail = String(
-    user.email || contactEmail || ""
-  )
-    .trim()
-    .toLowerCase();
-
-  if (!normalizedEmail) {
-    const error = new Error(
-      "A verified contact email is required to create a restaurant."
-    );
-
-    error.statusCode = 400;
-    throw error;
-  }
-
-  const normalizedGstin = normalizeGstin(gstin);
-  const { trialStartedAt, trialEndsAt } = createTrialDates();
-
-  const restaurant = await Restaurant.create({
-    name: restaurantName.trim(),
-    email: normalizedEmail,
-    address: restaurantAddress.trim(),
-    owner: user._id,
-
-    taxSettings: {
-      gstEnabled: Boolean(normalizedGstin),
-      gstRate: 5,
-      gstin: normalizedGstin,
-    },
-
-    subscription: {
-      plan: null,
-      billingPeriod: null,
-      status: "TRIALING",
-      trialStartedAt,
-      trialEndsAt,
-      currentPeriodStart: null,
-      currentPeriodEnd: null,
-    },
-  });
-
-  try {
-    user.restaurantId = restaurant._id;
-    await user.save();
-  } catch (error) {
-    // Remove the newly created restaurant if linking the user fails.
-    await Restaurant.deleteOne({
-      _id: restaurant._id,
-    }).catch((cleanupError) => {
-      console.error(
-        "Restaurant cleanup failed:",
-        cleanupError
-      );
-    });
-
-    throw error;
-  }
-
-  return {
-    restaurant,
-    created: true,
-  };
-}
-
-
-// =========================================================
-// FIREBASE AUTH — GOOGLE SIGN-IN / PHONE OTP
-// =========================================================
-
-router.post("/firebase", async (req, res) => {
-  let createdUserId = null;
-
-  try {
-    const {
-      idToken,
-      name,
-      contactEmail,
-      restaurantName,
-      restaurantAddress,
-      gstin,
-    } = req.body;
-
-    if (!idToken) {
-      return res.status(400).json({
-        message: "Firebase ID token is required.",
-      });
-    }
-
-    // Always verify the Firebase token on the server.
-    const decoded = await firebaseAuth.verifyIdToken(idToken);
-
-    const firebaseUid = decoded.uid;
-    const verifiedEmail = decoded.email_verified
-      ? decoded.email?.trim().toLowerCase()
-      : null;
-    const phoneNumber = decoded.phone_number || null;
-
-    // Find an account already linked to this Firebase identity.
-    let user = await User.findOne({ firebaseUid });
-
-    // Link by verified email only.
-    if (!user && verifiedEmail) {
-      user = await User.findOne({ email: verifiedEmail });
-
-      if (
-        user?.firebaseUid &&
-        user.firebaseUid !== firebaseUid
-      ) {
-        return res.status(409).json({
-          message:
-            "This account is linked to another Firebase identity. Contact support.",
-        });
-      }
-    }
-
-    // Phone identity can match only an existing phone account.
-    if (!user && phoneNumber) {
-      user = await User.findOne({ phoneNumber });
-    }
-
-    if (user && user.role !== "admin") {
-      return res.status(403).json({
-        message:
-          "Staff accounts must sign in with their assigned email and password.",
-        code: "STAFF_PASSWORD_LOGIN_REQUIRED",
-      });
-    }
-
-    // -------------------------------------------------------
-    // EXISTING USER: SIGN IN OR COMPLETE RESTAURANT SETUP
-    // -------------------------------------------------------
-
-    if (user) {
-      if (
-        user.firebaseUid &&
-        user.firebaseUid !== firebaseUid
-      ) {
-        return res.status(409).json({
-          message:
-            "This account is linked to another Firebase identity.",
-        });
-      }
-
-      user.firebaseUid = firebaseUid;
-
-      if (phoneNumber) {
-        user.phoneNumber = phoneNumber;
-      }
-
-      if (!user.email && verifiedEmail) {
-        user.email = verifiedEmail;
-      }
-
-      if (!user.name && (decoded.name || name)) {
-        user.name = decoded.name || name;
-      }
-
-      await user.save();
-
-      const existingRestaurant = user.restaurantId
-        ? await Restaurant.findById(user.restaurantId)
-        : null;
-
-      if (existingRestaurant) {
-        const response = formatAuthResponse(
-          user,
-          existingRestaurant
-        );
-
-        return res.status(200).json({
-          message: "Firebase authentication successful.",
-          ...response,
-        });
-      }
-
-      // If restaurant details have not been submitted yet,
-      // tell the frontend to show the setup form.
-      if (
-        !restaurantName?.trim() ||
-        !restaurantAddress?.trim()
-      ) {
-        return res.status(428).json({
-          message:
-            "Complete restaurant setup to continue.",
-          requiresRestaurantSetup: true,
-          firebaseUser: {
-            name: user.name || decoded.name || name || "",
-            email: user.email || verifiedEmail || "",
-            phoneNumber: user.phoneNumber || phoneNumber,
-          },
-        });
-      }
-
-      // Reuse the existing account; do not create another user.
-      const { restaurant, created } =
-        await createRestaurantForUser({
-          user,
-          restaurantName,
-          restaurantAddress,
-          contactEmail,
-          gstin,
-        });
-
-      const response = formatAuthResponse(user, restaurant);
-
-      return res.status(created ? 201 : 200).json({
-        message: created
-          ? "Restaurant created. Your 30-day trial has started."
-          : "Firebase authentication successful.",
-        ...response,
-      });
-    }
-
-    // -------------------------------------------------------
-    // NEW USER: REQUIRE RESTAURANT DETAILS
-    // -------------------------------------------------------
-
-    if (
-      !restaurantName?.trim() ||
-      !restaurantAddress?.trim()
-    ) {
-      return res.status(428).json({
-        message:
-          "Complete restaurant setup to create your DineFlow account.",
-        requiresRestaurantSetup: true,
-        firebaseUser: {
-          name: decoded.name || name || "",
-          email: verifiedEmail,
-          phoneNumber,
-        },
-      });
-    }
-
-    const normalizedContactEmail = String(
-      verifiedEmail || contactEmail || ""
-    ).trim().toLowerCase();
-
-    if (!normalizedContactEmail) {
-      return res.status(400).json({
-        message:
-          "A verified contact email is required to create your restaurant account.",
-      });
-    }
-
-    const inputError = validateRestaurantInput({
-      restaurantName,
-      restaurantAddress,
-      gstin,
-    });
-
-    if (inputError) {
-      return res.status(400).json({
-        message: inputError,
-      });
-    }
-
-    // Never create another account for an email already in use.
-    const emailOwner = await User.findOne({
-      email: normalizedContactEmail,
-    });
-
-    if (emailOwner) {
-      return res.status(409).json({
-        message:
-          "This email already belongs to an account. Sign in using its linked method.",
-      });
-    }
-
-    const newUser = await User.create({
-      name: (
-        decoded.name ||
-        name ||
-        "DineFlow Owner"
-      ).trim(),
-      email: normalizedContactEmail,
-      passwordHash: null,
-      firebaseUid,
-      phoneNumber,
-      role: "admin",
-    });
-
-    createdUserId = newUser._id;
-
-    const { restaurant } = await createRestaurantForUser({
-      user: newUser,
-      restaurantName,
-      restaurantAddress,
-      contactEmail: normalizedContactEmail,
-      gstin,
-    });
-
-    const response = formatAuthResponse(newUser, restaurant);
-
-    return res.status(201).json({
-      message: "Account created. Your 30-day trial has started.",
-      ...response,
-    });
-  } catch (error) {
-    console.error("Firebase authentication error:", error);
-
-    // Remove a newly created user if its registration failed.
-    // Existing users are never deleted by this cleanup.
-    if (createdUserId) {
-      await User.deleteOne({ _id: createdUserId }).catch(
-        (cleanupError) => {
-          console.error(
-            "User cleanup failed:",
-            cleanupError
-          );
-        }
-      );
-    }
-
-    if (
-      error.code === "auth/argument-error" ||
-      error.code === "auth/id-token-expired" ||
-      error.code === "auth/id-token-revoked"
-    ) {
-      return res.status(401).json({
-        message:
-          "Firebase token is invalid or expired. Please sign in again.",
-      });
-    }
-
-    if (error.statusCode) {
-      return res.status(error.statusCode).json({
-        message: error.message,
-      });
-    }
-
-    if (error.code === 11000) {
-      return res.status(409).json({
-        message:
-          "An account with these details already exists. Please sign in.",
-      });
-    }
-
-    return res.status(500).json({
-      message: "Firebase authentication failed.",
-    });
-  }
-});
-
-// =========================================================
 // REGISTER — EMAIL/PASSWORD + 30-DAY TRIAL
-// =========================================================
 
 router.post("/register", async (req, res) => {
   let createdUser = null;
@@ -610,10 +193,7 @@ router.post("/register", async (req, res) => {
       await Restaurant.deleteOne({
         _id: createdRestaurant._id,
       }).catch((cleanupError) => {
-        console.error(
-          "Restaurant cleanup failed:",
-          cleanupError
-        );
+        console.error("Restaurant cleanup failed:", cleanupError);
       });
     }
 
@@ -621,10 +201,7 @@ router.post("/register", async (req, res) => {
       await User.deleteOne({
         _id: createdUser._id,
       }).catch((cleanupError) => {
-        console.error(
-          "User cleanup failed:",
-          cleanupError
-        );
+        console.error("User cleanup failed:", cleanupError);
       });
     }
 
@@ -640,9 +217,7 @@ router.post("/register", async (req, res) => {
   }
 });
 
-// =========================================================
-// STAFF LOGIN
-// =========================================================
+// EMAIL/PASSWORD LOGIN — ADMIN AND STAFF
 
 router.post(["/login", "/staff-login"], async (req, res) => {
   try {
@@ -666,18 +241,10 @@ router.post(["/login", "/staff-login"], async (req, res) => {
       });
     }
 
-    if (user.role !== "staff") {
-      return res.status(403).json({
-        message:
-          "Please use Google Login to access your admin account.",
-        code: "ADMIN_GOOGLE_LOGIN_REQUIRED",
-      });
-    }
-
     if (!user.restaurantId) {
       return res.status(403).json({
         message:
-          "Your staff account is not linked to a restaurant. Contact your admin.",
+          "Your account is not linked to a restaurant. Please contact support.",
       });
     }
 
@@ -692,9 +259,7 @@ router.post(["/login", "/staff-login"], async (req, res) => {
       });
     }
 
-    const restaurant = await Restaurant.findById(
-      user.restaurantId
-    );
+    const restaurant = await Restaurant.findById(user.restaurantId);
 
     if (!restaurant) {
       return res.status(404).json({
@@ -706,7 +271,7 @@ router.post(["/login", "/staff-login"], async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Staff login successful.",
+      message: "Login successful.",
       token,
       user: {
         id: user._id,
@@ -725,17 +290,15 @@ router.post(["/login", "/staff-login"], async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Staff login error:", error);
+    console.error("Login error:", error);
 
     return res.status(500).json({
-      message: "Server error during staff login.",
+      message: "Server error during login.",
     });
   }
 });
 
-// =========================================================
 // CREATE STAFF
-// =========================================================
 
 router.post(
   "/staff",
@@ -821,9 +384,7 @@ router.post(
   }
 );
 
-// =========================================================
 // GET STAFF MEMBERS
-// =========================================================
 
 router.get(
   "/staff",
@@ -858,9 +419,7 @@ router.get(
   }
 );
 
-// =========================================================
 // GET CURRENT USER
-// =========================================================
 
 router.get("/me", authMiddleware, async (req, res) => {
   try {
@@ -880,7 +439,8 @@ router.get("/me", authMiddleware, async (req, res) => {
 
     if (!restaurant) {
       return res.status(404).json({
-        message: "Restaurant associated with this account was not found.",
+        message:
+          "Restaurant associated with this account was not found.",
       });
     }
 
@@ -901,13 +461,10 @@ router.get("/me", authMiddleware, async (req, res) => {
         subscription: restaurant.subscription
           ? {
               plan: restaurant.subscription.plan,
-              billingPeriod:
-                restaurant.subscription.billingPeriod,
+              billingPeriod: restaurant.subscription.billingPeriod,
               status: restaurant.subscription.status,
-              trialStartedAt:
-                restaurant.subscription.trialStartedAt,
-              trialEndsAt:
-                restaurant.subscription.trialEndsAt,
+              trialStartedAt: restaurant.subscription.trialStartedAt,
+              trialEndsAt: restaurant.subscription.trialEndsAt,
               currentPeriodStart:
                 restaurant.subscription.currentPeriodStart,
               currentPeriodEnd:

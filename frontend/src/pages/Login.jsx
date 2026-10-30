@@ -1,8 +1,7 @@
+
 import { useState } from "react";
-import { signInWithPopup } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 
-import { auth, googleProvider } from "../firebase";
 import { useAuth } from "../context/AuthContext";
 import "./Login.css";
 
@@ -15,157 +14,43 @@ function Login() {
   const { login, refreshUser } = useAuth();
 
   const [loginMode, setLoginMode] = useState("admin");
-  const [staffEmail, setStaffEmail] = useState("");
-  const [staffPassword, setStaffPassword] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
 
-// CREATE RESTAURANT ACCOUNT — GOOGLE FIRST
-const handleCreateRestaurantAccount = async () => {
-  setError("");
-  setMessage("");
-  setLoading(true);
-
-  try {
-    // 1. Authenticate through Firebase Google sign-in.
-    const result = await signInWithPopup(auth, googleProvider);
-
-    // 2. Get a Firebase ID token for backend verification.
-    const idToken = await result.user.getIdToken();
-
-    // 3. Use the SAME backend authentication endpoint as Google Login.
-    const response = await fetch(`${API_URL}/api/auth/firebase`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        idToken,
-        name: result.user.displayName || "",
-        contactEmail: result.user.email || "",
-      }),
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    // 4. New users or existing users without a restaurant
-    // must complete restaurant onboarding.
-    if (response.status === 428 && data.requiresRestaurantSetup) {
-      sessionStorage.setItem("dineflowRestaurantSetup", "true");
-
-      navigate("/register", {
-        replace: true,
-        state: {
-          requiresFirebaseSetup: true,
-          firebaseUser: data.firebaseUser || {
-            name: result.user.displayName || "",
-            email: result.user.email || "",
-            phoneNumber: result.user.phoneNumber || null,
-          },
-        },
-      });
-
-      return;
-    }
-
-    // 5. Handle backend authentication errors.
-    if (!response.ok) {
-      throw new Error(
-        data.message || "Unable to authenticate with Google."
-      );
-    }
-
-    // 6. Existing restaurant accounts should sign in normally.
-    if (!data.token || !data.user || !data.restaurant) {
-      throw new Error(
-        "The server returned incomplete account information."
-      );
-    }
-
-    if (data.user.role !== "admin") {
-      throw new Error(
-        "This account cannot use admin Google login. Please use Staff Login."
-      );
-    }
-
-    // 7. Save the authenticated session using the existing AuthContext.
-    login(data.token, data.user, data.restaurant);
-
-    sessionStorage.removeItem("dineflowRestaurantSetup");
-
-    // 8. Refresh restaurant information if available.
-    let restaurant = data.restaurant;
-
-    try {
-      const refreshed = await refreshUser();
-
-      if (refreshed?.restaurant) {
-        restaurant = refreshed.restaurant;
-      }
-    } catch (refreshError) {
-      console.error("Session refresh failed:", refreshError);
-    }
-
-    // 9. Route existing owners according to subscription status.
-    const status = restaurant?.subscription?.status;
-
-    navigate(
-      status === "TRIALING" || status === "ACTIVE"
-        ? "/admin"
-        : "/subscription",
-      { replace: true }
-    );
-  } catch (err) {
-    console.error("Google restaurant signup failed:", err);
-
-    setError(
-      err.message || "Google sign-in failed. Please try again."
-    );
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // EXISTING ADMIN GOOGLE LOGIN
-  const handleGoogleLogin = async () => {
+  const handleLogin = async (event) => {
+    event.preventDefault();
     setError("");
-    setMessage("");
     setLoading(true);
 
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const idToken = await result.user.getIdToken();
-
-      const response = await fetch(`${API_URL}/api/auth/firebase`, {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
       });
 
       const data = await response.json().catch(() => ({}));
 
-      if (response.status === 428 && data.requiresRestaurantSetup) {
-        sessionStorage.setItem("dineflowRestaurantSetup", "true");
-
-        navigate("/register", {
-          replace: true,
-          state: { requiresFirebaseSetup: true },
-        });
-        return;
-      }
-
       if (!response.ok) {
-        throw new Error(data.message || "Google authentication failed.");
+        throw new Error(data.message || "Login failed.");
       }
 
       if (!data.token || !data.user || !data.restaurant) {
         throw new Error("The server returned incomplete account information.");
       }
 
-      if (data.user.role !== "admin") {
+      if (data.user.role !== loginMode) {
         throw new Error(
-          "This account cannot use admin Google login. Please use Staff Login."
+          loginMode === "admin"
+            ? "This is not an administrator account. Please use Staff Login."
+            : "This is not a staff account. Please use Admin Login."
         );
       }
 
@@ -175,9 +60,17 @@ const handleCreateRestaurantAccount = async () => {
 
       try {
         const refreshed = await refreshUser();
-        if (refreshed?.restaurant) restaurant = refreshed.restaurant;
+
+        if (refreshed?.restaurant) {
+          restaurant = refreshed.restaurant;
+        }
       } catch (refreshError) {
         console.error("Session refresh failed:", refreshError);
+      }
+
+      if (loginMode === "staff") {
+        navigate("/kitchen", { replace: true });
+        return;
       }
 
       const status = restaurant?.subscription?.status;
@@ -189,67 +82,7 @@ const handleCreateRestaurantAccount = async () => {
         { replace: true }
       );
     } catch (err) {
-      console.error("Google sign-in failed:", err);
-      setError(err.message || "Google sign-in failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // STAFF LOGIN
-  const handleStaffLogin = async (event) => {
-    event.preventDefault();
-    setError("");
-    setMessage("");
-    setLoading(true);
-
-    try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: staffEmail.trim().toLowerCase(),
-          password: staffPassword,
-        }),
-      });
-
-      const contentType = response.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        throw new Error(
-          `Staff login endpoint returned HTTP ${response.status}. Check your backend route registration.`
-        );
-      }
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Staff login failed.");
-      }
-
-      if (
-        !data.token ||
-        !data.user ||
-        !data.restaurant ||
-        data.user.role !== "staff"
-      ) {
-        throw new Error("Invalid staff account response.");
-      }
-
-      login(data.token, data.user, data.restaurant);
-
-      try {
-        const refreshed = await refreshUser();
-
-        if (refreshed?.user && refreshed.user.role !== "staff") {
-          throw new Error("This account is not authorized for staff access.");
-        }
-      } catch (refreshError) {
-        console.error("Staff session refresh failed:", refreshError);
-      }
-
-      navigate("/kitchen", { replace: true });
-    } catch (err) {
-      console.error("Staff login failed:", err);
+      console.error("Login failed:", err);
       setError(err.message || "Unable to sign in. Please try again.");
     } finally {
       setLoading(false);
@@ -259,7 +92,8 @@ const handleCreateRestaurantAccount = async () => {
   const changeLoginMode = (mode) => {
     setLoginMode(mode);
     setError("");
-    setMessage("");
+    setEmail("");
+    setPassword("");
   };
 
   return (
@@ -349,86 +183,71 @@ const handleCreateRestaurantAccount = async () => {
           </div>
 
           {error && (
-            <p className="login-error" role="alert">{error}</p>
+            <p className="login-error" role="alert">
+              {error}
+            </p>
           )}
 
-          {message && <p role="status">{message}</p>}
+          <form className="login-form" onSubmit={handleLogin}>
+            <div className="login-field">
+              <label htmlFor="login-email">Email address</label>
+              <input
+                id="login-email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@restaurant.com"
+                autoComplete="username"
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div className="login-field">
+              <label htmlFor="login-password">Password</label>
+              <input
+                id="login-password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="login-submit"
+              disabled={loading}
+            >
+              {loading
+                ? "Signing in..."
+                : loginMode === "admin"
+                  ? "Admin Sign In"
+                  : "Staff Sign In"}
+            </button>
+          </form>
 
           {loginMode === "admin" && (
-            <>
+            <div className="register-link">
+              <p>New to DineFlow?</p>
               <button
+                className="Create-account"
                 type="button"
-                className="login-submit"
-                onClick={handleGoogleLogin}
+                onClick={() => navigate("/register")}
                 disabled={loading}
               >
-                {loading ? "Please wait..." : "Continue with Google"}
+                Create Restaurant Account
               </button>
-
-              <div className="register-link">
-                <p>New to DineFlow?</p>
-                <button
-                  className="Create-account"
-                  type="button"
-                  onClick={handleCreateRestaurantAccount}
-                  disabled={loading}
-                >
-                  {loading
-                    ? "Connecting to Google..."
-                    : "Create Restaurant Account"}
-                </button>
-              </div>
-            </>
+            </div>
           )}
 
           {loginMode === "staff" && (
-            <>
-              <p className="staff-login-description">
-                Sign in using the credentials provided by your restaurant admin.
-              </p>
-
-              <form className="login-form" onSubmit={handleStaffLogin}>
-                <div className="login-field">
-                  <label htmlFor="staff-email">Email address</label>
-                  <input
-                    id="staff-email"
-                    type="email"
-                    value={staffEmail}
-                    onChange={(event) => setStaffEmail(event.target.value)}
-                    placeholder="staff@restaurant.com"
-                    autoComplete="username"
-                    required
-                    disabled={loading}
-                  />
-                </div>
-
-                <div className="login-field">
-                  <label htmlFor="staff-password">Password</label>
-                  <input
-                    id="staff-password"
-                    type="password"
-                    value={staffPassword}
-                    onChange={(event) => setStaffPassword(event.target.value)}
-                    placeholder="Enter your password"
-                    autoComplete="current-password"
-                    required
-                    disabled={loading}
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="login-submit"
-                  disabled={loading}
-                >
-                  {loading ? "Signing in..." : "Staff Sign In"}
-                </button>
-              </form>
-
-              <p className="staff-login-help">
-                Need access? Contact your restaurant admin.
-              </p>
-            </>
+            <p className="staff-login-help">
+              Need access? Contact your restaurant admin.
+            </p>
           )}
         </div>
       </div>

@@ -1,12 +1,6 @@
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import {
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  signInWithPopup,
-} from "firebase/auth";
 
-import { auth } from "../firebase";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "./Register.css";
 
@@ -16,22 +10,11 @@ const API_URL = (
 
 function Register() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuth();
 
-  const [firebaseUser, setFirebaseUser] = useState(auth.currentUser);
-
-  const [isFirebaseOnboarding, setIsFirebaseOnboarding] = useState(() =>
-    Boolean(
-      location.state?.requiresFirebaseSetup ||
-      sessionStorage.getItem("dineflowRestaurantSetup") === "true" ||
-      auth.currentUser
-    )
-  );
-
   const [formData, setFormData] = useState({
-    name: auth.currentUser?.displayName || "",
-    email: auth.currentUser?.email || "",
+    name: "",
+    email: "",
     password: "",
     confirmPassword: "",
     restaurantName: "",
@@ -41,32 +24,6 @@ function Register() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setFirebaseUser(user);
-
-      const setupRequested =
-        sessionStorage.getItem("dineflowRestaurantSetup") === "true";
-
-      const routeRequestsSetup =
-        location.state?.requiresFirebaseSetup === true;
-
-      setIsFirebaseOnboarding(
-        Boolean(user || setupRequested || routeRequestsSetup)
-      );
-
-      if (user) {
-        setFormData((current) => ({
-          ...current,
-          name: user.displayName || current.name,
-          email: user.email || current.email,
-        }));
-      }
-    });
-
-    return unsubscribe;
-  }, [location.state]);
 
   const handleChange = (event) => {
     const { name } = event.target;
@@ -82,42 +39,29 @@ function Register() {
     }));
   };
 
-  // Optional fallback if the user opens /register directly.
-  const handleGoogleSignup = async () => {
-    setError("");
-    setLoading(true);
-
-    try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: "select_account" });
-
-      const result = await signInWithPopup(auth, provider);
-
-      sessionStorage.setItem("dineflowRestaurantSetup", "true");
-      setFirebaseUser(result.user);
-      setIsFirebaseOnboarding(true);
-
-      setFormData((current) => ({
-        ...current,
-        name: result.user.displayName || current.name,
-        email: result.user.email || current.email,
-      }));
-
-      navigate("/register", {
-        replace: true,
-        state: { requiresFirebaseSetup: true },
-      });
-    } catch (err) {
-      console.error("Google signup failed:", err);
-      setError(err.message || "Google sign-in failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleRegister = async (event) => {
     event.preventDefault();
     setError("");
+
+    if (!formData.name.trim()) {
+      setError("Enter your name.");
+      return;
+    }
+
+    if (!formData.email.trim()) {
+      setError("Enter your email address.");
+      return;
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
 
     if (!formData.restaurantName.trim()) {
       setError("Enter your restaurant name.");
@@ -129,72 +73,22 @@ function Register() {
       return;
     }
 
-    if (!isFirebaseOnboarding) {
-      if (formData.password !== formData.confirmPassword) {
-        setError("Passwords do not match.");
-        return;
-      }
-
-      if (formData.password.length < 6) {
-        setError("Password must be at least 6 characters.");
-        return;
-      }
-    }
-
     setLoading(true);
 
     try {
-      let endpoint;
-      let body;
-
-      if (isFirebaseOnboarding) {
-        const currentUser = auth.currentUser;
-
-        if (!currentUser) {
-          throw new Error(
-            "Your Google session has expired. Please sign in again with Google."
-          );
-        }
-
-        const idToken = await currentUser.getIdToken();
-
-        endpoint = `${API_URL}/api/auth/firebase`;
-
-        body = {
-          idToken,
-          name:
-            currentUser.displayName ||
-            formData.name.trim() ||
-            "DineFlow Owner",
-          contactEmail:
-            currentUser.email || formData.email.trim(),
-          restaurantName: formData.restaurantName.trim(),
-          restaurantAddress: formData.restaurantAddress.trim(),
-          gstin: formData.gstin.trim(),
-        };
-
-        if (!body.contactEmail) {
-          throw new Error(
-            "A contact email is required to create your restaurant account."
-          );
-        }
-      } else {
-        endpoint = `${API_URL}/api/auth/register`;
-
-        body = {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           name: formData.name.trim(),
-          email: formData.email.trim(),
+          email: formData.email.trim().toLowerCase(),
           password: formData.password,
           restaurantName: formData.restaurantName.trim(),
           restaurantAddress: formData.restaurantAddress.trim(),
           gstin: formData.gstin.trim(),
-        };
-      }
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -203,7 +97,7 @@ function Register() {
         if (response.status === 409) {
           throw new Error(
             data.message ||
-              "This account already exists or is linked to another account. Please sign in with the correct Google account."
+              "An account with this email already exists. Please sign in instead."
           );
         }
 
@@ -221,8 +115,6 @@ function Register() {
       }
 
       login(data.token, data.user, data.restaurant);
-
-      sessionStorage.removeItem("dineflowRestaurantSetup");
 
       const status = data.restaurant.subscription?.status;
 
@@ -258,6 +150,7 @@ function Register() {
             <span className="register-eyebrow">
               RESTAURANT OPERATIONS
             </span>
+
             <h2>
               Everything your
               <br />
@@ -265,6 +158,7 @@ function Register() {
               <br />
               <span>in one place.</span>
             </h2>
+
             <p>
               Bring orders, menus, tables, kitchen operations and
               business insights together with DineFlow.
@@ -313,128 +207,89 @@ function Register() {
             <div className="register-mobile-logo">👨‍🍳</div>
             <div>
               <span className="register-form-eyebrow">GET STARTED</span>
-              <h2>
-                {isFirebaseOnboarding
-                  ? "Set up your restaurant"
-                  : "Create your restaurant"}
-              </h2>
+              <h2>Create your restaurant</h2>
               <p>
-                {isFirebaseOnboarding
-                  ? "Your Google account is connected. Add your restaurant details to continue."
-                  : "Create your account and explore DineFlow free for 30 days."}
+                Create your account and explore DineFlow free for 30 days.
               </p>
             </div>
           </div>
 
-          {!isFirebaseOnboarding && (
-            <>
-              <button
-                type="button"
-                className="register-google-button"
-                onClick={handleGoogleSignup}
-                disabled={loading}
-              >
-                {loading ? "Connecting to Google..." : "Continue with Google"}
-              </button>
-
-              <div className="register-divider">
-                <span>or create an account with email</span>
-              </div>
-            </>
-          )}
-
-          {isFirebaseOnboarding && !firebaseUser && (
-            <div className="register-error" role="alert">
-              <span className="register-error-icon">!</span>
-              <span>
-                Your Google session needs to be restored. Click below to sign in again.
-              </span>
-              <button
-                type="button"
-                onClick={handleGoogleSignup}
-                disabled={loading}
-              >
-                Sign in with Google
-              </button>
-            </div>
-          )}
+          <div className="register-divider">
+            <span>Create an account with email</span>
+          </div>
 
           <form className="register-form" onSubmit={handleRegister}>
-            {!isFirebaseOnboarding && (
-              <div className="register-section">
-                <div className="register-section-heading">
-                  <span className="register-section-number">01</span>
-                  <div>
-                    <h3>Owner details</h3>
-                    <p>Your account information</p>
-                  </div>
-                </div>
-
-                <div className="register-grid">
-                  <div className="register-field register-field-full">
-                    <label htmlFor="name">Owner name</label>
-                    <input
-                      id="name"
-                      name="name"
-                      type="text"
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder="Enter your full name"
-                      autoComplete="name"
-                      required
-                    />
-                  </div>
-
-                  <div className="register-field register-field-full">
-                    <label htmlFor="email">Email address</label>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="you@restaurant.com"
-                      autoComplete="email"
-                      required
-                    />
-                  </div>
-
-                  <div className="register-field">
-                    <label htmlFor="password">Password</label>
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      placeholder="Minimum 6 characters"
-                      autoComplete="new-password"
-                      required
-                    />
-                  </div>
-
-                  <div className="register-field">
-                    <label htmlFor="confirmPassword">Confirm password</label>
-                    <input
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      placeholder="Re-enter your password"
-                      autoComplete="new-password"
-                      required
-                    />
-                  </div>
+            <div className="register-section">
+              <div className="register-section-heading">
+                <span className="register-section-number">01</span>
+                <div>
+                  <h3>Owner details</h3>
+                  <p>Your account information</p>
                 </div>
               </div>
-            )}
+
+              <div className="register-grid">
+                <div className="register-field register-field-full">
+                  <label htmlFor="name">Owner name</label>
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder="Enter your full name"
+                    autoComplete="name"
+                    required
+                  />
+                </div>
+
+                <div className="register-field register-field-full">
+                  <label htmlFor="email">Email address</label>
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="you@restaurant.com"
+                    autoComplete="email"
+                    required
+                  />
+                </div>
+
+                <div className="register-field">
+                  <label htmlFor="password">Password</label>
+                  <input
+                    id="password"
+                    name="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Minimum 6 characters"
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+
+                <div className="register-field">
+                  <label htmlFor="confirmPassword">Confirm password</label>
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    placeholder="Re-enter your password"
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
 
             <div className="register-section">
               <div className="register-section-heading">
-                <span className="register-section-number">
-                  {isFirebaseOnboarding ? "01" : "02"}
-                </span>
+                <span className="register-section-number">02</span>
                 <div>
                   <h3>Restaurant details</h3>
                   <p>Tell us about your restaurant</p>
@@ -497,7 +352,7 @@ function Register() {
             <button
               type="submit"
               className="register-submit"
-              disabled={loading || (isFirebaseOnboarding && !firebaseUser)}
+              disabled={loading}
             >
               {loading ? (
                 <>
@@ -516,10 +371,7 @@ function Register() {
               <span>Already have an account?</span>
               <button
                 type="button"
-                onClick={() => {
-                  sessionStorage.removeItem("dineflowRestaurantSetup");
-                  navigate("/login", { replace: true });
-                }}
+                onClick={() => navigate("/login", { replace: true })}
               >
                 Sign in
               </button>
