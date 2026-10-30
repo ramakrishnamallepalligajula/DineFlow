@@ -665,15 +665,6 @@ router.post(["/login", "/staff-login"], async (req, res) => {
         message: "Invalid email or password.",
       });
     }
-
-    if (user.role !== "staff") {
-      return res.status(403).json({
-        message:
-          "Please use Google Login to access your admin account.",
-        code: "ADMIN_GOOGLE_LOGIN_REQUIRED",
-      });
-    }
-
     if (!user.restaurantId) {
       return res.status(403).json({
         message:
@@ -706,7 +697,7 @@ router.post(["/login", "/staff-login"], async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Staff login successful.",
+      message: "Login successful.",
       token,
       user: {
         id: user._id,
