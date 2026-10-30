@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "firebase": "^13.0.0",
     "lucide-react": "^1.55.0",
     "motion": "^14.0.0",
     "qrcode.react": "^4.2.0",
