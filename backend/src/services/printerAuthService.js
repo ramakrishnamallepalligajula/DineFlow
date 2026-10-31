@@ -74,7 +74,7 @@ export async function createPairingCode({
   }
 
   const pairingCode = crypto
-    .randomInt(10000000, 100000000)
+    .randomInt(100000, 100000)
     .toString();
 
   const expiresAt = new Date(
