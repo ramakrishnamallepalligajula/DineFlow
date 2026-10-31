@@ -3,7 +3,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import PrinterDevice from "../models/PrinterDevice.js";
 
-const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
+const PAIRING_CODE_TTL_MS = 90 * 1000;
 
 // Use a dedicated secret so printer credentials are independent
 // of your normal dashboard JWT signing secret.
@@ -46,7 +46,7 @@ function safeCompare(first, second) {
 /**
  * ADMIN:
  * Register an Android bridge device and generate a temporary
- * pairing code.
+ * 6-digit pairing code.
  */
 export async function createPairingCode({
   restaurantId,
@@ -73,8 +73,9 @@ export async function createPairingCode({
     throw new Error("Invalid assigned user ID.");
   }
 
+  // Generate a random 6-digit code, including possible leading zeroes.
   const pairingCode = crypto
-    .randomInt(10000000, 100000000)
+    .randomInt(100000, 1000000)
     .toString();
 
   const expiresAt = new Date(
@@ -109,14 +110,14 @@ export async function createPairingCode({
 
 /**
  * ANDROID BRIDGE:
- * Verify a pairing code and issue a permanent device token.
+ * Verify a 6-digit pairing code and issue a permanent device token.
  *
  * The raw token is returned only once.
  */
 export async function pairDevice({ pairingCode }) {
   if (
     typeof pairingCode !== "string" ||
-    !/^\d{8}$/.test(pairingCode)
+    !/^\d{6}$/.test(pairingCode)
   ) {
     throw new Error("Invalid or expired pairing code.");
   }
