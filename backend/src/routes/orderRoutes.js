@@ -11,6 +11,8 @@ import Restaurant from "../models/Restaurant.js";
 import Bill from "../models/Bill.js";
 import subscriptionMiddleware from "../middleware/subscriptionMiddleware.js";
 import Food from "../models/Food.js";
+import { buildKotPrintPayload } from "../services/printFormatter.js";
+import { saveAndDispatchPrintJob } from "../services/printJobService.js";
 
 
 const hashRecoveryToken = (token) =>
@@ -23,15 +25,55 @@ const isValidRecoveryToken = (token) =>
   typeof token === "string" &&
   /^[a-f0-9-]{36}$/i.test(token);
 
+
 async function createKitchenPrintJob({ order, io }) {
   if (!order || !io) {
     return null;
   }
 
-  // No kitchen printer integration is configured in this codebase.
-  // Gracefully skip printer work without failing the order flow.
-  return null;
+  try {
+    const restaurant = await Restaurant.findById(
+      order.restaurantId
+    )
+      .select("name")
+      .lean();
+
+    if (!restaurant) {
+      throw new Error("Restaurant not found for KOT");
+    }
+
+    const payload = buildKotPrintPayload({
+      order,
+      restaurant,
+    });
+
+    const printJob = await saveAndDispatchPrintJob({
+      restaurantId: String(order.restaurantId),
+      type: "KOT",
+      printerRole: "KITCHEN",
+      sourceId: String(order._id),
+      payload,
+      io,
+    });
+
+    console.log(
+      `KOT print job created for order ${order.orderId}:`,
+      printJob?.jobId
+    );
+
+    return printJob;
+  } catch (error) {
+    console.error(
+      "KOT print job creation failed:",
+      error.message
+    );
+
+    // Printing failure must not cancel a successfully
+    // created customer order.
+    return null;
+  }
 }
+
 
 const orderRoutes = (io) => {
   const router = express.Router();

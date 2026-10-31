@@ -12,7 +12,7 @@ import CategoryPerformance from "../components/CategoryPerformance";
 
 import AdminNavigation from "../components/AdminNavigation";
 
-import PrinterManagement from "../components/PrinterManagement";
+import PrinterManagement from "../pages/PrinterManagement";
 
 import OnboardingTour from "../components/onboarding/OnboardingTour";
 

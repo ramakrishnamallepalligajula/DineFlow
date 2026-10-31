@@ -1,6 +1,6 @@
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-
+import PrinterManagement from "./pages/PrinterManagement";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 import Login from "./pages/Login";
@@ -83,6 +83,15 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["admin"]}>
               <RestaurantSettings />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/printer-management"
+          element={
+            <ProtectedRoute allowedRoles={["admin"]}>
+              <PrinterManagement />
             </ProtectedRoute>
           }
         />
