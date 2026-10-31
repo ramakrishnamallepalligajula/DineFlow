@@ -48,9 +48,51 @@ function createJwt(user, restaurant) {
   );
 }
 
+// Consistent restaurant data for authentication responses.
+
+function formatRestaurantData(restaurant) {
+  return {
+    id: restaurant._id,
+    name: restaurant.name,
+    email: restaurant.email,
+    phone: restaurant.phone || "",
+    address: restaurant.address || "",
+
+    logo: {
+      url: restaurant.logo?.url || "",
+      publicId: restaurant.logo?.publicId || "",
+    },
+
+    taxSettings: {
+      gstEnabled:
+        restaurant.taxSettings?.gstEnabled === true,
+      gstRate: restaurant.taxSettings?.gstRate ?? 5,
+      gstin: restaurant.taxSettings?.gstin || "",
+    },
+
+    subscription: restaurant.subscription
+      ? {
+          plan: restaurant.subscription.plan,
+          billingPeriod:
+            restaurant.subscription.billingPeriod,
+          status: restaurant.subscription.status,
+          trialStartedAt:
+            restaurant.subscription.trialStartedAt,
+          trialEndsAt:
+            restaurant.subscription.trialEndsAt,
+          currentPeriodStart:
+            restaurant.subscription.currentPeriodStart,
+          currentPeriodEnd:
+            restaurant.subscription.currentPeriodEnd,
+        }
+      : null,
+  };
+}
+
 function formatAuthResponse(user, restaurant) {
   return {
     token: createJwt(user, restaurant),
+
     user: {
       id: user._id,
       name: user.name,
@@ -59,14 +101,8 @@ function formatAuthResponse(user, restaurant) {
       role: user.role,
       restaurantId: restaurant._id,
     },
-    restaurant: {
-      id: restaurant._id,
-      name: restaurant.name,
-      email: restaurant.email,
-      address: restaurant.address,
-      taxSettings: restaurant.taxSettings,
-      subscription: restaurant.subscription,
-    },
+
+    restaurant: formatRestaurantData(restaurant),
   };
 }
 
@@ -158,11 +194,13 @@ router.post("/register", async (req, res) => {
       email: normalizedEmail,
       address: restaurantAddress.trim(),
       owner: user._id,
+
       taxSettings: {
         gstEnabled: Boolean(normalizedGstin),
         gstRate: 5,
         gstin: normalizedGstin,
       },
+
       subscription: {
         plan: null,
         billingPeriod: null,
@@ -193,7 +231,10 @@ router.post("/register", async (req, res) => {
       await Restaurant.deleteOne({
         _id: createdRestaurant._id,
       }).catch((cleanupError) => {
-        console.error("Restaurant cleanup failed:", cleanupError);
+        console.error(
+          "Restaurant cleanup failed:",
+          cleanupError
+        );
       });
     }
 
@@ -259,7 +300,9 @@ router.post(["/login", "/staff-login"], async (req, res) => {
       });
     }
 
-    const restaurant = await Restaurant.findById(user.restaurantId);
+    const restaurant = await Restaurant.findById(
+      user.restaurantId
+    );
 
     if (!restaurant) {
       return res.status(404).json({
@@ -273,6 +316,7 @@ router.post(["/login", "/staff-login"], async (req, res) => {
       success: true,
       message: "Login successful.",
       token,
+
       user: {
         id: user._id,
         name: user.name,
@@ -280,14 +324,8 @@ router.post(["/login", "/staff-login"], async (req, res) => {
         role: user.role,
         restaurantId: user.restaurantId,
       },
-      restaurant: {
-        id: restaurant._id,
-        name: restaurant.name,
-        email: restaurant.email,
-        phone: restaurant.phone,
-        address: restaurant.address,
-        subscription: restaurant.subscription,
-      },
+
+      restaurant: formatRestaurantData(restaurant),
     });
   } catch (error) {
     console.error("Login error:", error);
@@ -360,6 +398,7 @@ router.post(
 
       return res.status(201).json({
         message: "Staff account created successfully.",
+
         staff: {
           id: staff._id,
           name: staff.name,
@@ -452,26 +491,8 @@ router.get("/me", authMiddleware, async (req, res) => {
         role: user.role,
         restaurantId: user.restaurantId,
       },
-      restaurant: {
-        id: restaurant._id,
-        name: restaurant.name,
-        email: restaurant.email,
-        phone: restaurant.phone,
-        address: restaurant.address,
-        subscription: restaurant.subscription
-          ? {
-              plan: restaurant.subscription.plan,
-              billingPeriod: restaurant.subscription.billingPeriod,
-              status: restaurant.subscription.status,
-              trialStartedAt: restaurant.subscription.trialStartedAt,
-              trialEndsAt: restaurant.subscription.trialEndsAt,
-              currentPeriodStart:
-                restaurant.subscription.currentPeriodStart,
-              currentPeriodEnd:
-                restaurant.subscription.currentPeriodEnd,
-            }
-          : null,
-      },
+
+      restaurant: formatRestaurantData(restaurant),
     });
   } catch (error) {
     console.error("Get current user error:", error);

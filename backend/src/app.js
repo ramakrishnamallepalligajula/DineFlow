@@ -16,6 +16,7 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import billPaymentRoutes from "./routes/billPaymentRoutes.js";
 import billRoutes from "./routes/billRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
+import printerRoutes from "./routes/printerRoutes.js";
 
 const app = express();
 
@@ -230,6 +231,11 @@ export const setupRoutes = (io) => {
   app.use(
     "/api/bills", 
     billRoutes
+  );
+
+  app.use(
+    "/api/printers",
+    printerRoutes(io)
   );
 };
 

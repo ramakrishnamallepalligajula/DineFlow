@@ -14,11 +14,31 @@ const restaurantSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    phone: {
+  type: String,
+  default: "",
+  trim: true,
+},
 
     address: {
       type: String,
       default: "",
       trim: true,
+    },
+        // =========================================
+    // RESTAURANT BRANDING
+    // =========================================
+    logo: {
+      url: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+      publicId: {
+        type: String,
+        default: "",
+        trim: true,
+      },
     },
 
     owner: {

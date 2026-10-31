@@ -15,6 +15,7 @@ import {
   RefreshCw,
   LogOut,
   Wallet,
+  Printer,
 } from "lucide-react";
 
 import { useAuth } from "../context/AuthContext";
@@ -211,6 +212,21 @@ function AdminNavigation() {
                   Bill History
                 </span>
               </button>
+
+              <button
+  data-tour="printer-management"
+  className={`admin-navigation-item ${
+    isActive("/printer-management") ? "active" : ""
+  }`}
+  onClick={() => navigate("/printer-management")}
+>
+  <span className="admin-navigation-icon">
+    {renderIcon(Printer)}
+  </span>
+  <span className="admin-navigation-label">
+    Printer Management
+  </span>
+</button>
 
               <button
                 data-tour="settings"
