@@ -235,7 +235,7 @@ export const setupRoutes = (io) => {
 
   app.use(
     "/api/printers",
-    printerRoutes(io)
+    printerRoutes
   );
 };
 
