@@ -3,7 +3,7 @@ import crypto from "crypto";
 import mongoose from "mongoose";
 import PrinterDevice from "../models/PrinterDevice.js";
 
-const PAIRING_CODE_TTL_MS = 10 * 60 * 1000;
+const PAIRING_CODE_TTL_MS = 90 * 1000;
 
 // Use a dedicated secret so printer credentials are independent
 // of your normal dashboard JWT signing secret.
