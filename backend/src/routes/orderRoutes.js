@@ -321,11 +321,11 @@ if (existingOrder) {
     }
 
     // 10. Find or create the active table session.
-    let session = await TableSession.findOne({
-      restaurantId,
-      tableId,
-      status: { $in: ["open", "bill_requested"] },
-    }).sort({ createdAt: -1 });
+let session = await TableSession.findOne({
+  restaurantId,
+  tableId,
+  status: "open",
+}).sort({ createdAt: -1 });
 
     if (session?.status === "bill_requested") {
       return res.status(409).json({
@@ -1174,7 +1174,9 @@ router.get("/recover/:tableId", async (req, res) => {
   );
 
 
-router.patch("/:id/payment-method", async (req, res) => {
+router.patch(
+  "/:id/payment-method",
+   async (req, res) => {
   try {
     const { paymentMethod } = req.body;
     const recoveryToken = req.get(
